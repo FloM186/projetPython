@@ -73,11 +73,10 @@ def set_select(df) :
 Y_select = Select(title="Ordonnées :", options = [])
 X_select = Select(title="Abcisses :", options = [])
 nuage = figure(plot_width=900, plot_height=300)
-nuage.circle([1, 2, 3, 4, 5], [6, 7, 2, 4, 5], size=20, color="navy", alpha=0.5)
+
 
 # Boite à moustaches
 p2 = figure(plot_width=900, plot_height=300)
-p2.line([1, 2, 3, 4, 5], [6, 7, 2, 4, 5], line_width=3, color="navy", alpha=0.5)
 
 # affichage de l'application
 scatter = Panel(child=Column(Y_select, X_select, nuage) , title='Nuage de points')
