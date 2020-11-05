@@ -47,4 +47,3 @@ Vous serezévalués principalement sur :
 — https ://dash-gallery.plotly.host/Portal/
 — https ://docs.bokeh.org/en/latest/docs/gallery.htmlserver-app-examples
 ```
-### 1
