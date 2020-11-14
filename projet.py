@@ -66,8 +66,8 @@ data_table = DataTable( source=source, columns = columns, width=900, height=250,
 
 # CallBack des options des selects pour le nuage de points
 def set_select(df) :
-    Y_select.options = get_column_list(df)
-    X_select.options = get_column_list(df)
+    Y_select.options = get_column_list(df.select_dtypes(include=['float64','int64']))
+    X_select.options = get_column_list(df.select_dtypes(include=['float64','int64']))
 
 # Nuage de points
 Y_select = Select(title="Ordonnées :", options = [])
