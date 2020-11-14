@@ -83,7 +83,7 @@ scatter = Panel(child=Column(Y_select, X_select, nuage) , title='Nuage de points
 boxplot = Panel(child=bm , title='Boite à moustache')
 tabs = Tabs(tabs=[scatter,boxplot])
 
-controls = column(file_input,df_info)
-layout = row( controls, column(var_cible_select, data_table, df_describe, tabs ))
+controls = column(file_input,df_info, var_cible_select)
+layout = row( controls, column(data_table, df_describe, tabs ))
 curdoc().add_root(layout)
 curdoc().title = "Projet Python Cool"
