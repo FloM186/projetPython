@@ -7,10 +7,13 @@ from bokeh.models.layouts import Column
 from bokeh.models.widgets.tables import StringEditor
 from bokeh.io import curdoc
 from bokeh.layouts import column, row
-from bokeh.models import ( ColumnDataSource, DataTable, TableColumn, FileInput, PreText, Select, Panel, Tabs, Plot, Circle )
+from bokeh.models import ( ColumnDataSource, 
+                        DataTable, TableColumn, 
+                        FileInput, PreText, Select, 
+                        Panel, Tabs)
 from bokeh.plotting import figure
 
-# initialisation des dataframes pour les ColumnDataSource
+# initialisation des dataframes pour les ColumnDataSources
 df = pd.DataFrame()
 source = ColumnDataSource(data=dict(df))
 columns = []
@@ -63,7 +66,9 @@ def get_column_list(df):
 
 file_input.on_change('filename', lambda attr, old, new: update())
 
-data_table = DataTable( source=source, columns = columns, width=900, height=250, sortable=True, editable=True, fit_columns=True, selectable=True )
+data_table = DataTable( source=source, columns = columns,
+                         width=900, height=250, sortable=True, 
+                         editable=True, fit_columns=True, selectable=True )
 
 
 
@@ -76,7 +81,7 @@ nuage = figure(plot_width=900, plot_height=300)
 nuage.circle(x='x', y='y', source=source_nuage)
 
 
-# controle du nauge de points
+# controle du nuage de points
 controls_nuage = [x_select,y_select]
 for control_nuage in controls_nuage : 
     control_nuage.on_change('value',lambda attr,old,new : update_nuage())
