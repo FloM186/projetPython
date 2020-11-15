@@ -1,12 +1,13 @@
 import os
 import io
 import pandas as pd 
+import numpy as np
 
 from bokeh.models.layouts import Column
 from bokeh.models.widgets.tables import StringEditor
 from bokeh.io import curdoc
 from bokeh.layouts import column, row
-from bokeh.models import ( ColumnDataSource, DataTable, TableColumn, FileInput, PreText, Select, Panel, Tabs )
+from bokeh.models import ( ColumnDataSource, DataTable, TableColumn, FileInput, PreText, Select, Panel, Tabs, Plot, Circle )
 from bokeh.plotting import figure
 
 # initialisation des dataframes pour les ColumnDataSource
@@ -24,13 +25,13 @@ var_cible_select = Select(title="Sélectionner la variable cible :", options = [
 # initialisation des boutons pour le FileDialog
 file_input = FileInput(accept=".csv")
 
-# fonction callback du fileDialog
+# fonction callback du FileDialog (file_input)
 def update():
     df = pd.read_csv(os.path.abspath(file_input.filename))
     # source = ColumnDataSource(data = dict(df))
     update_df_display(df)
 
-# fonction callback des description des datasets des datasets
+# fonction callback des description des datasets
 def update_df_display(df):
     # CallBack infos sur le dataset
     buf = io.StringIO()
@@ -49,7 +50,7 @@ def update_df_display(df):
     # CallBack de la selection de la variable cible
     var_cible_select.options = get_column_list(df)
 
-    # CallBack des parametres du nuage de points 
+    # CallBack des Selects du nuage de points 
     set_select(df)
 
 # fonction qui retourne les colonnes du dataset
@@ -64,23 +65,39 @@ file_input.on_change('filename', lambda attr, old, new: update())
 
 data_table = DataTable( source=source, columns = columns, width=900, height=250, sortable=True, editable=True, fit_columns=True, selectable=True )
 
-# CallBack des options des selects pour le nuage de points
-def set_select(df) :
-    Y_select.options = get_column_list(df.select_dtypes(include=['float64','int64']))
-    X_select.options = get_column_list(df.select_dtypes(include=['float64','int64']))
+
 
 # Nuage de points
-Y_select = Select(title="Ordonnées :", options = [])
-X_select = Select(title="Abcisses :", options = [])
+y_select = Select(title="Ordonnées :", options = [])
+x_select = Select(title="Abcisses :", options = [])
+# donnees du nuage de points 
+source_nuage = ColumnDataSource(data=dict(x=[], y=[]))
 nuage = figure(plot_width=900, plot_height=300)
-nuage.circle()
+nuage.circle(x='x', y='y', source=source_nuage)
+
+
+# controle du nauge de points
+controls_nuage = [x_select,y_select]
+for control_nuage in controls_nuage : 
+    control_nuage.on_change('value',lambda attr,old,new : update_nuage())
+
+# CallBack des options des selects pour le nuage de points
+def set_select(df) :
+    y_select.options = get_column_list(df.select_dtypes(include=['float64','int64']))
+    x_select.options = get_column_list(df.select_dtypes(include=['float64','int64']))
+
+# CallBack du nuage de points 
+def update_nuage():
+    df = pd.read_csv(os.path.abspath(file_input.filename))
+    source_nuage.data = dict(x=df[x_select.value],y=df[y_select.value])
 
 # Boite à moustaches
 bm = figure(plot_width=900, plot_height=300)
 bm.line()
+
 # affichage de l'application
-scatter = Panel(child=Column(Y_select, X_select, nuage) , title='Nuage de points')
-boxplot = Panel(child=bm , title='Boite à moustache')
+scatter = Panel( child=Column( y_select, x_select, nuage ) , title='Nuage de points' )
+boxplot = Panel(child=bm , title='Histogramme')
 tabs = Tabs(tabs=[scatter,boxplot])
 
 controls = column(file_input,df_info, var_cible_select)
