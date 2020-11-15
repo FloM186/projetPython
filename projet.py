@@ -70,8 +70,6 @@ data_table = DataTable( source=source, columns = columns,
                          width=900, height=250, sortable=True, 
                          editable=True, fit_columns=True, selectable=True )
 
-
-
 # Nuage de points
 y_select = Select(title="Ordonnées :", options = [])
 x_select = Select(title="Abcisses :", options = [])
@@ -79,7 +77,6 @@ x_select = Select(title="Abcisses :", options = [])
 source_nuage = ColumnDataSource(data=dict(x=[], y=[]))
 nuage = figure(plot_width=900, plot_height=300)
 nuage.circle(x='x', y='y', source=source_nuage)
-
 
 # controle du nuage de points
 controls_nuage = [x_select,y_select]
