@@ -4,7 +4,7 @@ from numpy.lib.shape_base import column_stack
 import pandas as pd 
 import numpy as np
 
-from bokeh.models.layouts import Column
+from bokeh.models.layouts import Column, Row
 from bokeh.models.widgets.tables import StringEditor
 from bokeh.io import curdoc
 from bokeh.layouts import column, row
@@ -14,6 +14,8 @@ from bokeh.models import ( ColumnDataSource,
                         Panel, Tabs, MultiChoice )
 from bokeh.plotting import figure
 
+
+# DataSet------------------------------------------------------------------------
 # initialisation des dataframes pour les ColumnDataSources
 df = pd.DataFrame()
 source = ColumnDataSource(data=dict(df))
@@ -48,9 +50,6 @@ def update_df_display(df):
     data_table.source = source
     data_table.columns = [TableColumn(field = df[column_name].name, title = df[column_name].name, editor = StringEditor()) for column_name in get_column_list(df)]
 
-    # CallBack de la selection de la variable cible
-    var_cible_select.options = get_column_list(df)
-
     # CallBack des Selects du nuage de points (mise a jour des variables)
     nuage_var_select(df)
 
@@ -74,9 +73,9 @@ file_input.on_change('filename', lambda attr, old, new: update())
 data_table = DataTable( source=source, columns = columns,
                          width=900, height=250, sortable=True, 
                          editable=True, fit_columns=True, selectable=True )
+# Find DataSet----------------------------------------------------------------------     
 
-# outil pour la selection de la colonne cible
-var_cible_select = Select(title="Sélectionner la variable cible :", options = [])
+
 
 # Nuage de points------------------------------------------------------------------
 # selection des axes abscisse et ordonnées
@@ -103,7 +102,7 @@ def nuage_var_select(df) :
 def update_nuage():
     df = pd.read_csv(os.path.abspath(file_input.filename))
     source_nuage.data = dict(x=df[x_nuage_select.value],y=df[y_nuage_select.value])
-# ----------------------------------------------------------------------------------
+# Fin nuage de points----------------------------------------------------------------------------------
 
 
 # Histogramme numérique------------------------------------------------------------------------
@@ -131,8 +130,10 @@ def update_hist_quali():
     
     unique_elements, count_elements = np.unique(df_objects[hist_quanti_select.value], return_counts=True)
     source_hist_quanti.data = dict(x=unique_elements, top=count_elements)
-# -----------------------------------------------------------------------------------------------
+# Fin histogramme numérique-----------------------------------------------------------------------------------------------
 
+
+# Regression Logistique--------------------------------------------------------------------------------
 
 # Selection des variables descriptives 
 var_pred_choice = MultiChoice(title="Selection des variables Prédictives", options=[])
@@ -141,13 +142,25 @@ var_pred_choice = MultiChoice(title="Selection des variables Prédictives", opti
 def var_pred_choice_options(df):
     var_pred_choice.options = get_column_list(df)
 
+# outil pour la selection de la colonne cible pour la régression logistique
+var_cible_select = Select(title="Sélectionner la variable cible :", options = [])
+
+
 
 # affichage de l'application
+
+# affichage des graphiques (nuage de points+histogrammes) pour les variables numeriques
 scatter = Panel( child=Column( y_nuage_select, x_nuage_select, nuage ), title='Nuage de points' )
 boxplot = Panel( child=Column( hist_quanti_select,hist_quanti ), title='Histogramme des variables numériques' )
-tabs = Tabs(tabs=[scatter,boxplot])
+tabs_graphiques = Tabs(tabs=[scatter,boxplot])
 
-controls = column(file_input,df_info, var_pred_choice, var_cible_select)
-layout = row( controls, column(data_table, df_describe, tabs ))
+# affichage des méthodes de machine learning
+logist = Panel( child=Row( var_cible_select, var_pred_choice ), title='Régression Logistique' )
+SVM = Panel( child=Row(), title='SVM' )
+tabs_methods = Tabs(tabs=[logist, SVM])
+
+controls = column(file_input,df_info)
+layout = row( controls, column( data_table, df_describe, tabs_graphiques, tabs_methods ) )
+
 curdoc().add_root(layout)
 curdoc().title = "Projet Python Cool"
