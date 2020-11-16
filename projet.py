@@ -11,7 +11,7 @@ from bokeh.layouts import column, row
 from bokeh.models import ( ColumnDataSource, 
                         DataTable, TableColumn, 
                         FileInput, PreText, Select, 
-                        Panel, Tabs)
+                        Panel, Tabs, MultiChoice )
 from bokeh.plotting import figure
 
 # initialisation des dataframes pour les ColumnDataSources
@@ -56,6 +56,9 @@ def update_df_display(df):
 
     # CallBack des Selects du nuage de points (mise a jour des variables)
     hist_quali_var_select(df)
+
+    # CallBack des variables prédictives
+    var_pred_choice_options(df)
 
 # fonction qui retourne les colonnes du dataset
 def get_column_list(df):
@@ -112,7 +115,7 @@ source_hist_quanti= ColumnDataSource(data=dict(x=[], top=[]))
 
 # figure de l histogramme
 hist_quanti = figure(plot_width=900, plot_height=300)
-hist_quanti.vbar(x='x', top='top', source=source_hist_quanti, width=0.9)
+hist_quanti.vbar(x='x', top='top', source=source_hist_quanti, width=0.5)
 
 hist_quanti_select.on_change('value',lambda attr,old,new : update_hist_quali())
 
@@ -130,12 +133,21 @@ def update_hist_quali():
     source_hist_quanti.data = dict(x=unique_elements, top=count_elements)
 # -----------------------------------------------------------------------------------------------
 
+
+# Selection des variables descriptives 
+var_pred_choice = MultiChoice(title="Selection des variables Prédictives", options=[])
+
+# CallBack des Choix de variables predictives
+def var_pred_choice_options(df):
+    var_pred_choice.options = get_column_list(df)
+
+
 # affichage de l'application
 scatter = Panel( child=Column( y_nuage_select, x_nuage_select, nuage ), title='Nuage de points' )
-boxplot = Panel(child=Column( hist_quanti_select,hist_quanti ), title='Histogramme des variables numériques')
+boxplot = Panel( child=Column( hist_quanti_select,hist_quanti ), title='Histogramme des variables numériques' )
 tabs = Tabs(tabs=[scatter,boxplot])
 
-controls = column(file_input,df_info, var_cible_select)
+controls = column(file_input,df_info, var_pred_choice, var_cible_select)
 layout = row( controls, column(data_table, df_describe, tabs ))
 curdoc().add_root(layout)
 curdoc().title = "Projet Python Cool"
