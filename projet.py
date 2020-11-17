@@ -15,7 +15,7 @@ from bokeh.layouts import column, row
 from bokeh.models import ( ColumnDataSource, 
                         DataTable, TableColumn, 
                         FileInput, PreText, Select, 
-                        Panel, Tabs, MultiChoice )
+                        Panel, Tabs, MultiChoice, Div )
 from bokeh.plotting import figure
 
 
@@ -192,6 +192,10 @@ def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02):
                     label='test set')
 
 
+url=os.getcwd()+'decision_region.png/'
+div_image = Div(text="""<img src='projet/static/decision_region.png' alt="div_image">""", width=900, height=300)
+
+
 # affichage de l'application
 
 # affichage des graphiques (nuage de points+histogrammes) pour les variables numeriques
@@ -205,7 +209,7 @@ SVM = Panel( child=Row(), title='SVM' )
 tabs_methods = Tabs(tabs=[logist, SVM])
 
 controls = column(file_input,df_info)
-layout = row( controls, column( data_table, df_describe, tabs_graphiques, tabs_methods ) )
+layout = row( controls, column( data_table, df_describe, tabs_graphiques, tabs_methods, div_image ) )
 
 curdoc().add_root(layout)
 curdoc().title = "Projet Python Cool"
