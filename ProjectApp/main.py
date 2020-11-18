@@ -197,9 +197,15 @@ def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02):
 
 
 url=os.getcwd()+'/static/decision_region.png/'
-div_image = Div(text="""<img src='pythonProject/static/decision_region.png' alt="div_image">""", width=25, height=25)
+div_image = Div(text="""<img src='ProjectApp/static/decision_region.png' alt="div_image">""", width=25, height=25)
 
 # affichage de l'application
+
+# affichage des informations sur le dataset
+
+info_df = Panel(child=Column(df_info), title='Informations sur les variables du DataFrame')
+desc_df = Panel(child=Column(df_describe), title='Description du dataset')
+tabs_df = Tabs(tabs=[info_df,desc_df])
 
 # affichage des graphiques (nuage de points+histogrammes) pour les variables numeriques
 scatter = Panel( child=Column( y_nuage_select, x_nuage_select, nuage ), title='Nuage de points' )
@@ -207,12 +213,11 @@ boxplot = Panel( child=Column( hist_quanti_select,hist_quanti ), title='Histogra
 tabs_graphiques = Tabs(tabs=[scatter,boxplot])
 
 # affichage des méthodes de machine learning
-logist = Panel( child=Row( var_cible_reg_log_select, var_pred_reg_log_choice ), title='Régression Logistique' )
+logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_choice), div_image ), title='Régression Logistique' )
 SVM = Panel( child=Row(), title='SVM' )
 tabs_methods = Tabs(tabs=[logist, SVM])
 
-controls = row(file_input,df_info)
-layout = column( controls, column( data_table, df_describe), tabs_graphiques, tabs_methods, div_image)
+layout = column( file_input, tabs_df, data_table, tabs_graphiques, tabs_methods)
 
 curdoc().add_root(layout)
 curdoc().title = "Projet Python Cool"
