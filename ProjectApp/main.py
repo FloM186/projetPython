@@ -1,4 +1,5 @@
-import os
+import os 
+from os.path import dirname, join
 import io
 
 import pandas as pd 
@@ -15,8 +16,9 @@ from bokeh.layouts import column, row
 from bokeh.models import ( ColumnDataSource, 
                         DataTable, TableColumn, 
                         FileInput, PreText, Select, 
-                        Panel, Tabs, MultiChoice, Div )
+                        Panel, Tabs, MultiChoice )
 from bokeh.plotting import figure
+from bokeh.models.widgets import Div
 
 
 # DataSet------------------------------------------------------------------------
@@ -34,7 +36,7 @@ file_input = FileInput(accept=".csv")
 
 # fonction callback du FileDialog (file_input)
 def update():
-    df = pd.read_csv(os.path.abspath(file_input.filename))
+    df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
     # source = ColumnDataSource(data = dict(df))
     update_df_display(df)
 
@@ -60,15 +62,17 @@ def update_df_display(df):
     # CallBack des Selects du nuage de points (mise a jour des variables)
     hist_quali_var_select(df)
 
-    # CallBack des variables prédictives
-    var_pred_choice_options(df)
+    # CallBack de la variable cible pour la regression logistique 
+    var_cible_reg_log_select_options(df)
+
+    # CallBack des variables prédictives pour la regression logistique 
+    var_pred_reg_log_choice_options(df)
 
 # fonction qui retourne les colonnes du dataset
 def get_column_list(df):
     column_list=[]
     for i in df.columns:
     	column_list.append(i)
-    # column_list.insert(0,'----------')
     return column_list
 
 
@@ -102,9 +106,10 @@ for control_nuage in controls_nuage :
 def nuage_var_select(df) :
     y_nuage_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
     x_nuage_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
+
 # CallBack du nuage de points 
 def update_nuage():
-    df = pd.read_csv(os.path.abspath(file_input.filename))
+    df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
     source_nuage.data = dict(x=df[x_nuage_select.value],y=df[y_nuage_select.value])
 # Fin nuage de points----------------------------------------------------------------------------------
 
@@ -128,7 +133,7 @@ def hist_quali_var_select(df) :
 
 # CallBack du nuage de points 
 def update_hist_quali():
-    df = pd.read_csv(os.path.abspath(file_input.filename))
+    df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
 
     df_objects = df[ get_column_list(df.select_dtypes(include=['float64','int64'])) ]
     
@@ -137,17 +142,34 @@ def update_hist_quali():
 # Fin histogramme numérique-----------------------------------------------------------------------------------------------
 
 
-# Regression Logistique--------------------------------------------------------------------------------
+# Regression Logistique--------------------------------------------------------------------------------------------
+# outil pour la selection de la colonne cible pour la régression logistique
+var_cible_reg_log_select = Select(title="Sélectionner la variable cible :", options = [])
+# CallBack du select de la variable prédictive 
+def var_cible_reg_log_select_options(df):
+    var_cible_reg_log_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['object','int64']))))
 
 # Selection des variables descriptives 
-var_pred_choice = MultiChoice(title="Selection des variables Prédictives", options=[])
-
+var_pred_reg_log_choice = MultiChoice(title="Sélection des variables Prédictives", options=[])
 # CallBack des Choix de variables predictives
-def var_pred_choice_options(df):
-    var_pred_choice.options = get_column_list(df)
+def var_pred_reg_log_choice_options(df):
+    var_pred_reg_log_choice.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
 
-# outil pour la selection de la colonne cible pour la régression logistique
-var_cible_select = Select(title="Sélectionner la variable cible :", options = [])
+# Variables de la regression logistique 
+controls_reg_log = [var_cible_reg_log_select,var_pred_reg_log_choice]
+for control_reg_log in controls_reg_log:
+    control_reg_log.on_change('value', lambda attr,old,new: update_reg_log())
+
+# CallBack des features de la regression logistique 
+def update_reg_log():
+    df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
+    print('la variable cible :',df[var_cible_reg_log_select.value].values)
+    print('les variables prédictives :',df[var_pred_reg_log_choice.value].values)
+
+# figure regression logistique matplotlib
+div_image = Div(text="""<img src='ProjectApp/static/decision_region.png' alt="div_image">""", width=25, height=25)
+# Fin de la regression logistique---------------------------------------------------------------------------------- 
+
 
 def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02):
     
@@ -192,11 +214,13 @@ def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02):
                     label='test set')
 
 
-url=os.getcwd()+'decision_region.png/'
-div_image = Div(text="""<img src='projet/static/decision_region.png' alt="div_image">""", width=900, height=300)
-
-
 # affichage de l'application
+
+# affichage des informations sur le dataset
+
+info_df = Panel(child=Column(df_info), title='Informations sur les variables du DataFrame')
+desc_df = Panel(child=Column(df_describe), title='Description du dataset')
+tabs_df = Tabs(tabs=[info_df,desc_df])
 
 # affichage des graphiques (nuage de points+histogrammes) pour les variables numeriques
 scatter = Panel( child=Column( y_nuage_select, x_nuage_select, nuage ), title='Nuage de points' )
@@ -204,16 +228,11 @@ boxplot = Panel( child=Column( hist_quanti_select,hist_quanti ), title='Histogra
 tabs_graphiques = Tabs(tabs=[scatter,boxplot])
 
 # affichage des méthodes de machine learning
-logist = Panel( child=Row( var_cible_select, var_pred_choice ), title='Régression Logistique' )
+logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_choice), div_image ), title='Régression Logistique' )
 SVM = Panel( child=Row(), title='SVM' )
 tabs_methods = Tabs(tabs=[logist, SVM])
 
-table = Panel(child=Row(data_table), title='Tableau de données')
-info = Panel(child=Row(df_info), title='Informations sur les données')
-desc = Panel(child=Row(df_describe), title='Description des données')
-tabs_description = Tabs(tabs=[table, info, desc])
-controls = column(file_input)
-layout = row( controls, column(tabs_description, tabs_graphiques, tabs_methods, div_image))
+layout = column( file_input, tabs_df, data_table, tabs_graphiques, tabs_methods)
 
 curdoc().add_root(layout)
 curdoc().title = "Projet Python Cool"
