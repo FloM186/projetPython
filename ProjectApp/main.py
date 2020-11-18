@@ -62,8 +62,11 @@ def update_df_display(df):
     # CallBack des Selects du nuage de points (mise a jour des variables)
     hist_quali_var_select(df)
 
-    # CallBack des variables prédictives
-    var_pred_choice_options(df)
+    # CallBack de la variable cible pour la regression logistique 
+    var_cible_reg_log_select_options(df)
+
+    # CallBack des variables prédictives pour la regression logistique 
+    var_pred_reg_log_choice_options(df)
 
 # fonction qui retourne les colonnes du dataset
 def get_column_list(df):
@@ -147,8 +150,13 @@ var_cible_reg_log_select = Select(title="Sélectionner la variable cible :", opt
 # Selection des variables descriptives 
 var_pred_reg_log_choice = MultiChoice(title="Selection des variables Prédictives", options=[])
 
+
+# CallBack du select de la variable prédictive 
+def var_cible_reg_log_select_options(df):
+    var_cible_reg_log_select.options = get_column_list(df)
+
 # CallBack des Choix de variables predictives
-def var_pred_choice_options(df):
+def var_pred_reg_log_choice_options(df):
     var_pred_reg_log_choice.options = get_column_list(df)
 
 
@@ -196,7 +204,6 @@ def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02):
                     label='test set')
 
 
-url=os.getcwd()+'/static/decision_region.png/'
 div_image = Div(text="""<img src='ProjectApp/static/decision_region.png' alt="div_image">""", width=25, height=25)
 
 # affichage de l'application
