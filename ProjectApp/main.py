@@ -107,6 +107,7 @@ for control_nuage in controls_nuage :
 def nuage_var_select(df) :
     y_nuage_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
     x_nuage_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
+
 # CallBack du nuage de points 
 def update_nuage():
     df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
@@ -142,23 +143,22 @@ def update_hist_quali():
 # Fin histogramme numérique-----------------------------------------------------------------------------------------------
 
 
-# Regression Logistique--------------------------------------------------------------------------------
-
+# Regression Logistique--------------------------------------------------------------------------------------------
 # outil pour la selection de la colonne cible pour la régression logistique
 var_cible_reg_log_select = Select(title="Sélectionner la variable cible :", options = [])
-
-# Selection des variables descriptives 
-var_pred_reg_log_choice = MultiChoice(title="Selection des variables Prédictives", options=[])
-
-
 # CallBack du select de la variable prédictive 
 def var_cible_reg_log_select_options(df):
     var_cible_reg_log_select.options = get_column_list(df)
 
+# Selection des variables descriptives 
+var_pred_reg_log_choice = MultiChoice(title="Selection des variables Prédictives", options=[])
 # CallBack des Choix de variables predictives
 def var_pred_reg_log_choice_options(df):
     var_pred_reg_log_choice.options = get_column_list(df)
 
+# figure regression logistique matplotlib
+div_image = Div(text="""<img src='ProjectApp/static/decision_region.png' alt="div_image">""", width=25, height=25)
+# Fin de la regression logistique---------------------------------------------------------------------------------- 
 
 
 def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02):
@@ -203,8 +203,6 @@ def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02):
                     s=100, 
                     label='test set')
 
-
-div_image = Div(text="""<img src='ProjectApp/static/decision_region.png' alt="div_image">""", width=25, height=25)
 
 # affichage de l'application
 
