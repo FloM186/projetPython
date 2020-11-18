@@ -204,8 +204,12 @@ logist = Panel( child=Row( var_cible_select, var_pred_choice ), title='Régressi
 SVM = Panel( child=Row(), title='SVM' )
 tabs_methods = Tabs(tabs=[logist, SVM])
 
-controls = column(file_input,df_info)
-layout = row( controls, column( data_table, df_describe, tabs_graphiques, tabs_methods ) )
+table = Panel(child=Row(data_table), title='Tableau de données')
+info = Panel(child=Row(df_info), title='Informations sur les données')
+desc = Panel(child=Row(df_describe), title='Description des données')
+tabs_description = Tabs(tabs=[table, info, desc])
+controls = column(file_input)
+layout = row( controls, column(tabs_description, tabs_graphiques, tabs_methods))
 
 curdoc().add_root(layout)
 curdoc().title = "Projet Python Cool"
