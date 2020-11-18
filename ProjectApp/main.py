@@ -73,7 +73,6 @@ def get_column_list(df):
     column_list=[]
     for i in df.columns:
     	column_list.append(i)
-    # column_list.insert(0,'----------')
     return column_list
 
 
@@ -148,13 +147,24 @@ def update_hist_quali():
 var_cible_reg_log_select = Select(title="Sélectionner la variable cible :", options = [])
 # CallBack du select de la variable prédictive 
 def var_cible_reg_log_select_options(df):
-    var_cible_reg_log_select.options = get_column_list(df)
+    var_cible_reg_log_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['object','int64']))))
 
 # Selection des variables descriptives 
-var_pred_reg_log_choice = MultiChoice(title="Selection des variables Prédictives", options=[])
+var_pred_reg_log_choice = MultiChoice(title="Sélection des variables Prédictives", options=[])
 # CallBack des Choix de variables predictives
 def var_pred_reg_log_choice_options(df):
-    var_pred_reg_log_choice.options = get_column_list(df)
+    var_pred_reg_log_choice.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
+
+# Variables de la regression logistique 
+controls_reg_log = [var_cible_reg_log_select,var_pred_reg_log_choice]
+for control_reg_log in controls_reg_log:
+    control_reg_log.on_change('value', lambda attr,old,new: update_reg_log())
+
+# CallBack des features de la regression logistique 
+def update_reg_log():
+    df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
+    print('la variable cible :',df[var_cible_reg_log_select.value].values)
+    print('les variables prédictives :',df[var_pred_reg_log_choice.value].values)
 
 # figure regression logistique matplotlib
 div_image = Div(text="""<img src='ProjectApp/static/decision_region.png' alt="div_image">""", width=25, height=25)
