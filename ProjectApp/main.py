@@ -110,7 +110,7 @@ def nuage_var_select(df) :
 # CallBack du nuage de points 
 def update_nuage():
     df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
-    source_nuage.data = dict(x=df[x_nuage_select.value],y=df[y_nuage_select.value])
+    source_nuage.data = dict( x=df[x_nuage_select.value], y=df[y_nuage_select.value] )
 # Fin nuage de points----------------------------------------------------------------------------------
 
 
@@ -218,7 +218,7 @@ def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02):
 
 # affichage des informations sur le dataset
 
-info_df = Panel(child=Column(df_info), title='Informations sur les variables du DataFrame')
+info_df = Panel(child=Column(df_info), title='Informations sur les variables')
 desc_df = Panel(child=Column(df_describe), title='Description du dataset')
 tabs_df = Tabs(tabs=[info_df,desc_df])
 
@@ -236,3 +236,6 @@ layout = column( file_input, tabs_df, data_table, tabs_graphiques, tabs_methods)
 
 curdoc().add_root(layout)
 curdoc().title = "Projet Python Cool"
+
+
+
