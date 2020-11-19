@@ -10,9 +10,10 @@ from matplotlib.colors import ListedColormap
 import matplotlib.pyplot as plt
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.impute import SimpleImputer
 
+from statsmodels.api import Logit, MNLogit
 
 from bokeh.models.layouts import Column, Row
 from bokeh.models.widgets.tables import StringEditor
@@ -161,7 +162,7 @@ def var_pred_reg_log_choice_options(df):
     var_pred_reg_log_choice.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
 
 # figure regression logistique matplotlib
-div_image = Div(text="""<img src='ProjectApp/static/empty.png' alt="div_image">""", width=25, height=25)
+res_lr = PreText(text='', width=500, height=100)
 
 # Variables de la regression logistique 
 controls_reg_log = [var_cible_reg_log_select,var_pred_reg_log_choice]
@@ -178,39 +179,22 @@ def update_reg_log():
 
     # les variables cibles de la regression logistique 
     X = df[var_pred_reg_log_choice.value].values
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1, stratify=y)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=1, stratify=y)  
+
+    labelEncoder_y = LabelEncoder()
+    y_train = labelEncoder_y.fit_transform(y_train)
     
-    # instanciation de la classe StandardScaler pour la reduction des données
-    sc = StandardScaler()
-    sc.fit(X_train)
-    X_train_std = sc.transform(X_train)
-    X_test_std = sc.transform(X_test)
+    # traitement des valeurs manquantes 
+    imputer = SimpleImputer(missing_values=np.nan, strategy = 'mean')
+    imputer = imputer.fit(X_train)
+    X_train = imputer.transform(X_train)
 
-    # on combine les données test et entrainement et on les melange pour la representation graphique
-    X_combined_std = np.vstack((X_train_std, X_test_std))
-    y_combined = np.hstack((y_train, y_test))
+    # regression logitique avec statsmodels
+    lr = MNLogit(endog=np.int64(y_train), exog=X_train)
+    res = lr.fit()
+    # print(res.summary())
 
-    # instanciation regression logistique avec sklearn
-    lr = LogisticRegression(C=100.0, random_state=1, solver='lbfgs', multi_class='ovr')
-    lr.fit(X_train_std, y_train)
-    
-    # representation graphique des regions de decisions
-    plt = plot_decision_regions(X_combined_std[:,0:2], y_combined,classifier=lr, test_idx=range(105, 150))
-    # plt.xlabel('petal length [centré et réduit]')
-    # plt.ylabel('petal width [centré et réduit]')
-    plt.legend(loc='upper left')
-    # plt.tight_layout()
-    
-    
-
-    # div_image.text = 'caca'
-
-    div_image.text = """<img src='ProjectApp/static/decision_region.png' alt="div_image">"""
-
-
-    print('Cardinale des modalités y: ', np.bincount(y),'dimension de X :',X.shape)
-    print('Cardinale des modalités :', np.bincount(y_train),'dimension de X_train :',X_train.shape)
-    print('Cardinale des modalités y_test:', np.bincount(y_test),'dimension de X_test :',X_test.shape)
+    res_lr.text = str(res.summary())
     print('--------------------------------------------------------------------------------------------')
 
 # Fin de la regression logistique---------------------------------------------------------------------------------- 
@@ -257,10 +241,6 @@ def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02):
                     marker='o',
                     s=100, 
                     label='test set')
-    
-    plt.figure().savefig('ProjectApp/static/decision_region.png')
-    return plt
-
 
 # affichage de l'application
 
@@ -276,7 +256,7 @@ boxplot = Panel( child=Column( hist_quanti_select,hist_quanti ), title='Histogra
 tabs_graphiques = Tabs(tabs=[scatter,boxplot])
 
 # affichage des méthodes de machine learning
-logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_choice), div_image ), title='Régression Logistique' )
+logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_choice), res_lr ), title='Régression Logistique' )
 SVM = Panel( child=Row(), title='SVM' )
 tabs_methods = Tabs(tabs=[logist, SVM])
 
