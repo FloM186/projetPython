@@ -1,4 +1,3 @@
-import os 
 from os.path import dirname, join
 import io
 
@@ -6,8 +5,14 @@ import pandas as pd
 
 import numpy as np
 
-from matplotlib.colors import ListedColormap
-import matplotlib.pyplot as plt
+from sklearn.metrics import classification_report
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+
+from statsmodels.api import MNLogit
 
 from bokeh.models.layouts import Column, Row
 from bokeh.models.widgets.tables import StringEditor
@@ -16,9 +21,8 @@ from bokeh.layouts import column, row
 from bokeh.models import ( ColumnDataSource, 
                         DataTable, TableColumn, 
                         FileInput, PreText, Select, 
-                        Panel, Tabs, MultiChoice )
+                        Panel, Tabs, MultiChoice, Slider )
 from bokeh.plotting import figure
-from bokeh.models.widgets import Div
 
 
 # DataSet------------------------------------------------------------------------
@@ -155,63 +159,73 @@ var_pred_reg_log_choice = MultiChoice(title="Sélection des variables Prédictiv
 def var_pred_reg_log_choice_options(df):
     var_pred_reg_log_choice.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
 
+# slider du partitionnement des données test et entrainement 
+slider_reg_log_train_test = Slider(start=0, end=1, value=0.3, step=0.01, title="Proportion des données test" )
+
+# select pour les strategies de valeurs manquantes
+strategy_imputer_reg_log = Select(title='Stratégie de remplacement des valeurs manquantes', value='mean', 
+                                options=['mean','median','most_frequent'])
+
+# resultat regression logistique matplotlib
+res_lr = PreText(text='', width=900, height=700)
+
+# dataframe pour l affichage de la matrice de confusion
+matrix_conf = pd.DataFrame()
+source_conf = ColumnDataSource(data=dict(matrix_conf))
+columns_conf = []
+data_conf = DataTable(source=source_conf, columns = columns,
+                    width=600, height=250, sortable=True, 
+                    editable=True, fit_columns=True, selectable=True )
+
 # Variables de la regression logistique 
-controls_reg_log = [var_cible_reg_log_select,var_pred_reg_log_choice]
+controls_reg_log = [var_cible_reg_log_select,var_pred_reg_log_choice, strategy_imputer_reg_log, slider_reg_log_train_test]
 for control_reg_log in controls_reg_log:
     control_reg_log.on_change('value', lambda attr,old,new: update_reg_log())
 
 # CallBack des features de la regression logistique 
 def update_reg_log():
+    # la source de données pour la regression logistique 
     df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
-    print('la variable cible :',df[var_cible_reg_log_select.value].values)
-    print('les variables prédictives :',df[var_pred_reg_log_choice.value].values)
 
-# figure regression logistique matplotlib
-div_image = Div(text="""<img src='ProjectApp/static/decision_region.png' alt="div_image">""", width=25, height=25)
-# Fin de la regression logistique---------------------------------------------------------------------------------- 
+    print(slider_reg_log_train_test.value)
 
+    # la variable cible de la regression logistique
+    y = df[var_cible_reg_log_select.value].values
 
-def plot_decision_regions(X, y, classifier, test_idx=None, resolution=0.02):
+    # les variables cibles de la regression logistique 
+    X = df[var_pred_reg_log_choice.value].values
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=slider_reg_log_train_test.value,
+                                                        random_state=1, stratify=y)  
+
+    labelEncoder_y = LabelEncoder()
+    y_train = labelEncoder_y.fit_transform(y_train)
+    y_test = labelEncoder_y.fit_transform(y_test)
     
-    # setup marker et color map
-    markers = ('s', 'x', 'o', '^', 'v')
-    colors = ('red', 'blue', 'lightgreen', 'gray', 'cyan')
-    cmap = ListedColormap(colors[:len(np.unique(y))])
+    # traitement des valeurs manquantes 
+    imputer = SimpleImputer(missing_values=np.nan, strategy = strategy_imputer_reg_log.value)
+    imputer = imputer.fit(X_train)
+    X_train = imputer.transform(X_train)
 
-    # plot de la surface de decision
-    x1_min, x1_max = X[:, 0].min() - 1, X[:, 0].max() + 1
-    x2_min, x2_max = X[:, 1].min() - 1, X[:, 1].max() + 1
-    xx1, xx2 = np.meshgrid(np.arange(x1_min, x1_max, resolution),
-                           np.arange(x2_min, x2_max, resolution))
-    Z = classifier.predict(np.array([xx1.ravel(), xx2.ravel()]).T)
-    Z = Z.reshape(xx1.shape)
-    plt.contourf(xx1, xx2, Z, alpha=0.3, cmap=cmap)
-    plt.xlim(xx1.min(), xx1.max())
-    plt.ylim(xx2.min(), xx2.max())
+    # regression logitique avec statsmodels
+    lr = MNLogit(endog=np.int64(y_train), exog=X_train)
+    res = lr.fit()
+    
+    model = LogisticRegression(random_state=0, multi_class='multinomial', penalty='none', solver='newton-cg').fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    
+    matrix_conf = pd.DataFrame( np.array(confusion_matrix(y_test, y_pred)), index=np.unique(y), columns=np.unique(y) )
+    matrix_conf.insert(0, "Observations\Prédictions", np.unique(y), True) 
+    
+    class_report=classification_report(y_test, y_pred)
+    res_lr.text = str(res.summary())+'\n'+str(class_report)+'\n Accuracy score : '+str(accuracy_score(y_test, y_pred))
+    print(type( str(accuracy_score(y_test, y_pred)) ))
 
-    for idx, cl in enumerate(np.unique(y)):
-        plt.scatter(x=X[y == cl, 0], 
-                    y=X[y == cl, 1],
-                    alpha=0.8, 
-                    c=colors[idx],
-                    marker=markers[idx], 
-                    label=cl, 
-                    edgecolor='black')
+    # CallBack des colonnes (TableColumn) pour l affichage de la table (DataTable) 
+    source_conf.data = {matrix_conf[column_name].name : matrix_conf[column_name] for column_name in get_column_list(matrix_conf)}
+    data_conf.source = source_conf
+    data_conf.columns = [TableColumn(field = matrix_conf[column_name].name, title = matrix_conf[column_name].name, editor = StringEditor()) for column_name in get_column_list(matrix_conf)]
 
-    # highlight test examples
-    if test_idx:
-        # plot tout les exemples
-        X_test, y_test = X[test_idx, :], y[test_idx]
-
-        plt.scatter(X_test[:, 0],
-                    X_test[:, 1],
-                    c='',
-                    edgecolor='black',
-                    alpha=1.0,
-                    linewidth=1,
-                    marker='o',
-                    s=100, 
-                    label='test set')
+# Fin de la regression logistique---------------------------------------------------------------------------------- 
 
 
 # affichage de l'application
@@ -228,7 +242,8 @@ boxplot = Panel( child=Column( hist_quanti_select,hist_quanti ), title='Histogra
 tabs_graphiques = Tabs(tabs=[scatter,boxplot])
 
 # affichage des méthodes de machine learning
-logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_choice), div_image ), title='Régression Logistique' )
+logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_choice), 
+                                Row(slider_reg_log_train_test, strategy_imputer_reg_log), res_lr, data_conf ), title='Régression Logistique' )
 SVM = Panel( child=Row(), title='SVM' )
 tabs_methods = Tabs(tabs=[logist, SVM])
 
