@@ -15,7 +15,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 from sklearn.model_selection import cross_val_score, StratifiedKFold, learning_curve
 
+
 from statsmodels.api import MNLogit
+import statsmodels.api as sm
 
 from bokeh.models.layouts import Column, Row
 from bokeh.models.widgets.tables import StringEditor
@@ -273,6 +275,159 @@ def update_reg_log():
 
 
 # Fin de la regression logistique---------------------------------------------------------------------------------- 
+
+
+# Regression Linéaire simple--------------------------------------------------------------------------------------------
+# outil pour la selection de la colonne cible pour la régression logistique
+var_cible_reg_lin_select = Select(title="Sélectionner la variable cible :", options = [])
+# CallBack du select de la variable prédictive 
+def var_cible_reg_lin_select_options(df):
+    var_cible_reg_lin_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['object','int64']))))
+
+# Selection des variables predictives 
+var_pred_reg_lin_choice = MultiChoice(title="Sélection des variables Prédictives", options=[])
+
+# CallBack des Choix de variables predictives
+def var_pred_reg_lin_choice_options(df):
+    var_pred_reg_lin_choice.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
+
+# slider du partitionnement des données test et entrainement 
+slider_reg_lin_train_test = Slider(start=0, end=1, value=0.3, step=0.01, title="Proportion des données test" )
+
+# select pour les strategies de valeurs manquantes
+strategy_imputer_reg_lin = Select(title='Stratégie de remplacement des valeurs manquantes', value='mean', 
+                                options=['mean','median','most_frequent'])
+
+# Variables de la regression linéaire
+controls_reg_log = [var_cible_reg_lin_select,var_pred_reg_lin_choice, strategy_imputer_reg_lin, slider_reg_lin_train_test]
+for control_reg_in in controls_reg_lin:
+    control_reg_lin.on_change('value', lambda attr,old,new: update_reg_lin())
+
+# CallBack des features de la regression linéaire
+def update_reg_lin():
+    # la source de données pour la regression linéaire 
+    df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
+
+    # la variable cible de la regression linéaire 
+    y = df[var_cible_reg_lin_select.value].values
+
+    # les variables cibles de la regression linéaire 
+    X = df[var_pred_reg_lin_choice.value].values
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=slider_reg_log_train_test.value,
+                                                        random_state=1, stratify=y)  
+
+    # encodage des variables cibles categorielles qui ne sont pas numerique
+    labelEncoder_y = LabelEncoder()
+    if(y.dtype == 'object'):
+        y_train = labelEncoder_y.fit_transform(y_train)
+        y_test = labelEncoder_y.fit_transform(y_test)
+    
+    # traitement des valeurs manquantes 
+    imputer = SimpleImputer(missing_values=np.nan, strategy = strategy_imputer_reg_log.value)
+    imputer = imputer.fit(X_train)
+    X_train = imputer.transform(X_train)
+    imputer = imputer.fit(X_test)
+    X_test = imputer.transform(X_test)
+
+    # regression logistique avec statsmodels
+    lr = MNLogit(endog=np.int64(y_train), exog=X_train)
+    res = lr.fit()
+    
+    model = LogisticRegression(random_state=0, multi_class='multinomial', penalty='none', solver='newton-cg').fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    
+    matrix_conf = pd.DataFrame( np.array(confusion_matrix(y_test, y_pred)), index=np.unique(y), columns=[str(i) for i in np.unique(y)] )
+    matrix_conf.insert(0, "Observations\Prédictions", np.unique(y), True) 
+    
+    class_report=classification_report(y_test, y_pred)
+    res_lr.text = str(res.summary())+'\n'+str(class_report)+'\n Accuracy score : '+str(accuracy_score(y_test, y_pred))
+
+    # CallBack des colonnes (TableColumn) pour l affichage de la table (DataTable) 
+    source_conf.data = {matrix_conf[column_name].name : matrix_conf[column_name] for column_name in get_column_list(matrix_conf)}
+    data_conf.source = source_conf
+    data_conf.columns = [TableColumn(field = matrix_conf[column_name].name, title = matrix_conf[column_name].name, editor = StringEditor()) for column_name in get_column_list(matrix_conf)]
+
+    # # validation croisee stratifiée
+    pipe_lr = make_pipeline(StandardScaler(),
+                        LogisticRegression(penalty='l2', random_state=1,
+                                            solver='lbfgs', max_iter=100000))
+    train_sizes, train_scores, test_scores = learning_curve(estimator=pipe_lr,
+                               X=X_train,
+                               y=y_train,
+                               train_sizes=np.linspace(0.1, 1.0, 10),
+                               cv=10,
+                               n_jobs=1)
+    
+    train_mean = np.mean(train_scores, axis=1)
+    train_std = np.std(train_scores, axis=1)
+    test_mean = np.mean(test_scores, axis=1)
+    test_std = np.std(test_scores, axis=1)
+
+    source_learn_curve.data = dict( train_sizes=train_sizes, train_mean=train_mean,
+                                    train_mean_p_train_std=(train_mean+train_std/3), 
+                                    train_mean_m_train_std=(train_mean-train_std/3),
+                                    test_mean_p_test_std=(test_mean+test_std/6),
+                                    test_mean_m_test_std=(test_mean-test_std/6),
+                                    test_mean=test_mean )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# resultat regression logistique matplotlib
+res_lr = PreText(text='', width=900, height=700)
+
+# dataframe pour l affichage de la matrice de confusion
+matrix_conf = pd.DataFrame()
+source_conf = ColumnDataSource(data=dict(matrix_conf))
+columns_conf = []
+data_conf = DataTable(source=source_conf, columns = columns,
+                    width=600, height=200, sortable=True, 
+                    editable=True, fit_columns=True, selectable=True )
+
+# learnig curve pour la regression logistique 
+source_learn_curve = ColumnDataSource(data=dict(train_sizes=[], train_mean=[],  
+                                                train_mean_p_train_std=[],
+                                                train_mean_m_train_std=[],
+                                                test_mean=[],
+                                                test_mean_p_test_std=[],
+                                                test_mean_m_test_std=[]))
+learn_curve = figure(title="Accuracy", title_location="left", plot_width=600, plot_height=400)
+learn_curve.add_layout(Title(text="number of training examples", align="center"), "below")
+learn_curve.varea('train_sizes', 'train_mean_p_train_std','train_mean_m_train_std', source = source_learn_curve, fill_color= "lightskyblue")
+learn_curve.line( 'train_sizes', 'train_mean', source = source_learn_curve )
+learn_curve.circle( 'train_sizes', 'train_mean', source = source_learn_curve, size = 15, fill_color='blue', legend_label='training accuracy')
+learn_curve.varea('train_sizes', 'test_mean_p_test_std','test_mean_m_test_std', source = source_learn_curve, fill_color= "palegreen")
+learn_curve.line('train_sizes', 'test_mean', source=source_learn_curve)
+learn_curve.circle( 'train_sizes', 'test_mean', source = source_learn_curve, size = 15, fill_color='green', legend_label='validation accuracy')
+
+# Variables de la regression logistique 
+controls_reg_log = [var_cible_reg_log_select,var_pred_reg_log_choice, strategy_imputer_reg_log, slider_reg_log_train_test]
+for control_reg_log in controls_reg_log:
+    control_reg_log.on_change('value', lambda attr,old,new: update_reg_log())
+
+
+    
+    
+    
+
+
+# Fin de la regression logistique---------------------------------------------------------------------------------- 
+
+
 
 
 # affichage de l'application
