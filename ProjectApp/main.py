@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 
 from sklearn.metrics import classification_report
+from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
 from sklearn.pipeline import make_pipeline
@@ -197,7 +198,6 @@ learn_curve.circle( 'train_sizes', 'train_mean', source = source_learn_curve, si
 learn_curve.varea('train_sizes', 'test_mean_p_test_std','test_mean_m_test_std', source = source_learn_curve, fill_color= "palegreen")
 learn_curve.line('train_sizes', 'test_mean', source=source_learn_curve)
 learn_curve.circle( 'train_sizes', 'test_mean', source = source_learn_curve, size = 15, fill_color='green', legend_label='validation accuracy')
-learn_curve.legend.location = 'bottom_right'
 
 # Variables de la regression logistique 
 controls_reg_log = [var_cible_reg_log_select,var_pred_reg_log_choice, strategy_imputer_reg_log, slider_reg_log_train_test]
@@ -278,7 +278,13 @@ def update_reg_log():
 # Fin de la regression logistique---------------------------------------------------------------------------------- 
 
 
-# Regression Linéaire simple--------------------------------------------------------------------------------------------
+
+
+
+
+
+
+# Regression Linéaire--------------------------------------------------------------------------------------------
 # outil pour la selection de la colonne cible pour la régression logistique
 var_cible_reg_lin_select = Select(title="Sélectionner la variable cible :", options = [])
 # CallBack du select de la variable prédictive 
@@ -295,6 +301,12 @@ def var_pred_reg_lin_choice_options(df):
 # slider du partitionnement des données test et entrainement 
 slider_reg_lin_train_test = Slider(start=0, end=1, value=0.3, step=0.01, title="Proportion des données test" )
 
+# slider du alpha max
+slider_reg_lin_alpha = Slider(start=0, end=1, value=0.25, step=0.01, title="Valeur de alpha" )
+
+# slider du alpha max
+slider_reg_lin_alpha_pas = Slider(start=0, end=1, value=0.05, step=0.01, title="Valeur du pas de alpha" )
+
 # select pour les strategies de valeurs manquantes
 strategy_imputer_reg_lin = Select(title='Stratégie de remplacement des valeurs manquantes', value='mean', 
                                 options=['mean','median','most_frequent'])
@@ -303,6 +315,15 @@ strategy_imputer_reg_lin = Select(title='Stratégie de remplacement des valeurs 
 controls_reg_log = [var_cible_reg_lin_select,var_pred_reg_lin_choice, strategy_imputer_reg_lin, slider_reg_lin_train_test]
 for control_reg_in in controls_reg_lin:
     control_reg_lin.on_change('value', lambda attr,old,new: update_reg_lin())
+
+res_summ = PreText(text='', width=400)
+tableau_alpha =  PreText(text='', width=400)
+
+
+
+
+
+
 
 # CallBack des features de la regression linéaire
 def update_reg_lin():
@@ -314,80 +335,52 @@ def update_reg_lin():
 
     # les variables cibles de la regression linéaire 
     X = df[var_pred_reg_lin_choice.value].values
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=slider_reg_log_train_test.value,
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=slider_reg_lin_train_test.value,
                                                         random_state=1, stratify=y)  
 
-    # encodage des variables cibles categorielles qui ne sont pas numerique
-    labelEncoder_y = LabelEncoder()
-    if(y.dtype == 'object'):
-        y_train = labelEncoder_y.fit_transform(y_train)
-        y_test = labelEncoder_y.fit_transform(y_test)
-    
-    # traitement des valeurs manquantes 
-    imputer = SimpleImputer(missing_values=np.nan, strategy = strategy_imputer_reg_log.value)
+     # traitement des valeurs manquantes 
+    imputer = SimpleImputer(missing_values=np.nan, strategy = strategy_imputer_reg_lin.value)
     imputer = imputer.fit(X_train)
     X_train = imputer.transform(X_train)
     imputer = imputer.fit(X_test)
     X_test = imputer.transform(X_test)
 
-    # regression logistique avec statsmodels
-    lr = MNLogit(endog=np.int64(y_train), exog=X_train)
-    res = lr.fit()
+    # regression linéaire avec statsmodels
+    linreg = sm.OLS(y_train,X_train)
+    res = linreg.fit()
     
-    model = LogisticRegression(random_state=0, multi_class='multinomial', penalty='none', solver='newton-cg').fit(X_train, y_train)
-    y_pred = model.predict(X_test)
+    res_summ.text = str(res.summary())
+
+    #prediction régression linéaire simple
+    #appliquer le modèle
+    ypred = linreg.predict(res.params,X_test)
+    #print(ypred)
+
+
+    #regression linéaire
+    #centrer réduire moyennes d'apprentissage
+    sc = StandardScaler()
+    X_trainsc = sc.fit_transform(pd.DataFrame(X_train))
+    y_trainsc = sc.fit_transform(pd.DataFrame(y_train))
     
-    matrix_conf = pd.DataFrame( np.array(confusion_matrix(y_test, y_pred)), index=np.unique(y), columns=[str(i) for i in np.unique(y)] )
-    matrix_conf.insert(0, "Observations\Prédictions", np.unique(y), True) 
+    #model = linreg
+    #results_fu = res
+    frames = []
+    for n in np.arange(0, slider_reg_lin_alpha, slider_reg_lin_alpha_pas).tolist():
+        results_fr = linreg.fit_regularized(L1_wt=0, alpha=n, start_params=res.params)
+
+        results_fr_fit = sm.regression.linear_model.OLSResults(linreg, 
+                                                            results_fr.params, 
+                                                            linreg.normalized_cov_params)
+        frames.append(np.append(results_fr.params, results_fr_fit.ssr))
+
+    df_des_alpha = pd.DataFrame(frames, columns=list(X1Train.columns) + ['ssr*'])
+    df_des_alpha.index=np.arange(0, slider_reg_lin_alpha, slider_reg_lin_alpha_pas).tolist()
+    df_des_alpha.index.name = 'alpha*'
+    #affichage
+    tableau_alpha = df_des_alpha.T
+    tableau_alpha.text = str(tableau_alpha)
     
-    class_report=classification_report(y_test, y_pred)
-    
-
-    # CallBack des colonnes (TableColumn) pour l affichage de la table (DataTable) 
-    source_conf.data = {matrix_conf[column_name].name : matrix_conf[column_name] for column_name in get_column_list(matrix_conf)}
-    data_conf.source = source_conf
-    data_conf.columns = [TableColumn(field = matrix_conf[column_name].name, title = matrix_conf[column_name].name, editor = StringEditor()) for column_name in get_column_list(matrix_conf)]
-
-    # # validation croisee stratifiée
-    pipe_lr = make_pipeline(StandardScaler(),
-                            LogisticRegression( penalty='l2', random_state=1,
-                                                solver='lbfgs', max_iter=100000))
-    train_sizes, train_scores, test_scores = learning_curve(estimator=pipe_lr,
-                               X=X_train,
-                               y=y_train,
-                               train_sizes=np.linspace(0.1, 1.0, 10),
-                               cv=5,
-                               n_jobs=1)
-    
-    train_mean = np.mean(train_scores, axis=1)
-    train_std = np.std(train_scores, axis=1)
-    test_mean = np.mean(test_scores, axis=1)
-    test_std = np.std(test_scores, axis=1)
-
-    source_learn_curve.data = dict( train_sizes=train_sizes, train_mean=train_mean,
-                                    train_mean_p_train_std=(train_mean+train_std/3), 
-                                    train_mean_m_train_std=(train_mean-train_std/3),
-                                    test_mean_p_test_std=(test_mean+test_std/6),
-                                    test_mean_m_test_std=(test_mean-test_std/6),
-                                    test_mean=test_mean )
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # resultat regression logistique matplotlib
 res_lr = PreText(text='', width=900, height=700)
 
@@ -420,37 +413,6 @@ controls_reg_log = [var_cible_reg_log_select,var_pred_reg_log_choice, strategy_i
 for control_reg_log in controls_reg_log:
     control_reg_log.on_change('value', lambda attr,old,new: update_reg_log())
 
-
-    
-    # validation croisée stratifiée
-    kfold = StratifiedKFold(n_splits=10).split(X_train, y_train)
-    scores = []
-    # rapport lr
-    rapport_lr = str(res.summary())+'\n'+str(class_report)+'\n Accuracy score : '+str(accuracy_score(y_test, y_pred))
-    rapport_lr = rapport_lr+'\n\n\n\n\n Validation Croisée Stratifiée :'
-
-
-    for k, (train, test) in enumerate(kfold):
-        pipe_lr.fit(X_train[train], y_train[train])
-        score = pipe_lr.score(X_train[test], y_train[test])
-        scores.append(score)
-        print('Ensemble: %2d, Classe dist.: %s, Accuracy: %.3f' % (k+1,np.bincount(y_train[train]), score))
-        rapport_lr = rapport_lr + '\n          Ensemble: %2d, Class dist.: %s, Accuracy: %.3f' % (k+1,np.bincount(y_train[train]), score)
-
-    # validation croisée
-    print('\n\n\n\n\n Validation Croisée accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
-    rapport_lr = rapport_lr + '\n\n\n\n\n Validation Croisée accuracy: %.3f +/- %.3f \n' % (np.mean(scores), np.std(scores))
-    scores = cross_val_score(estimator=pipe_lr,
-                                X=X_train,
-                                y=y_train,
-                                cv=10,
-                                n_jobs=1)
-    print('Validation Croisée accuracy scores: %s' % scores)
-    rapport_lr = rapport_lr + '\n Validation Croisée accuracy scores: %s' % scores
-    print('Validation Croisée accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
-    rapport_lr = rapport_lr + '\n Validation Croisée accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores))
-
-    res_lr.text = rapport_lr
 
     
     
