@@ -263,7 +263,7 @@ def update_reg_log():
     res = lr.fit()
     
     model = LogisticRegression(penalty=penalty_lr_select.value, random_state=1,
-                                            C=spinner_c_lr.value).fit(X_train, y_train)
+                                            C=spinner_c_lr.value, max_iter=10000000).fit(X_train, y_train)
     y_pred = model.predict(X_test)
     
     matrix_conf = pd.DataFrame( np.array(confusion_matrix(y_test, y_pred)),
@@ -281,9 +281,7 @@ def update_reg_log():
                                                     editor = StringEditor()) for column_name in get_column_list(matrix_conf)]
 
     # # validation croisee stratifiée
-    pipe_lr_cv = make_pipeline(StandardScaler(),
-                            LogisticRegression( random_state=1,penalty=penalty_lr_select.value, solver='lbfgs',
-                                                C=spinner_c_lr.value, max_iter=10000000))
+    pipe_lr_cv = make_pipeline(StandardScaler(),model)
     train_sizes, train_scores, test_scores = learning_curve(estimator=pipe_lr_cv,
                                X=X_train,
                                y=y_train,
