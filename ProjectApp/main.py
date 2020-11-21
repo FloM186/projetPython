@@ -419,7 +419,7 @@ for control_reg_log in controls_reg_log:
     
 
 
-# Fin de la regression logistique---------------------------------------------------------------------------------- 
+# Fin de la regression linéaire---------------------------------------------------------------------------------- 
 
 
 
