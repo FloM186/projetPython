@@ -197,6 +197,7 @@ learn_curve.circle( 'train_sizes', 'train_mean', source = source_learn_curve, si
 learn_curve.varea('train_sizes', 'test_mean_p_test_std','test_mean_m_test_std', source = source_learn_curve, fill_color= "palegreen")
 learn_curve.line('train_sizes', 'test_mean', source=source_learn_curve)
 learn_curve.circle( 'train_sizes', 'test_mean', source = source_learn_curve, size = 15, fill_color='green', legend_label='validation accuracy')
+learn_curve.legend.location = 'bottom_right'
 
 # Variables de la regression logistique 
 controls_reg_log = [var_cible_reg_log_select,var_pred_reg_log_choice, strategy_imputer_reg_log, slider_reg_log_train_test]
@@ -340,7 +341,7 @@ def update_reg_lin():
     matrix_conf.insert(0, "Observations\Prédictions", np.unique(y), True) 
     
     class_report=classification_report(y_test, y_pred)
-    res_lr.text = str(res.summary())+'\n'+str(class_report)+'\n Accuracy score : '+str(accuracy_score(y_test, y_pred))
+    
 
     # CallBack des colonnes (TableColumn) pour l affichage de la table (DataTable) 
     source_conf.data = {matrix_conf[column_name].name : matrix_conf[column_name] for column_name in get_column_list(matrix_conf)}
@@ -349,13 +350,13 @@ def update_reg_lin():
 
     # # validation croisee stratifiée
     pipe_lr = make_pipeline(StandardScaler(),
-                        LogisticRegression(penalty='l2', random_state=1,
-                                            solver='lbfgs', max_iter=100000))
+                            LogisticRegression( penalty='l2', random_state=1,
+                                                solver='lbfgs', max_iter=100000))
     train_sizes, train_scores, test_scores = learning_curve(estimator=pipe_lr,
                                X=X_train,
                                y=y_train,
                                train_sizes=np.linspace(0.1, 1.0, 10),
-                               cv=10,
+                               cv=5,
                                n_jobs=1)
     
     train_mean = np.mean(train_scores, axis=1)
@@ -419,6 +420,37 @@ controls_reg_log = [var_cible_reg_log_select,var_pred_reg_log_choice, strategy_i
 for control_reg_log in controls_reg_log:
     control_reg_log.on_change('value', lambda attr,old,new: update_reg_log())
 
+
+    
+    # validation croisée stratifiée
+    kfold = StratifiedKFold(n_splits=10).split(X_train, y_train)
+    scores = []
+    # rapport lr
+    rapport_lr = str(res.summary())+'\n'+str(class_report)+'\n Accuracy score : '+str(accuracy_score(y_test, y_pred))
+    rapport_lr = rapport_lr+'\n\n\n\n\n Validation Croisée Stratifiée :'
+
+
+    for k, (train, test) in enumerate(kfold):
+        pipe_lr.fit(X_train[train], y_train[train])
+        score = pipe_lr.score(X_train[test], y_train[test])
+        scores.append(score)
+        print('Ensemble: %2d, Classe dist.: %s, Accuracy: %.3f' % (k+1,np.bincount(y_train[train]), score))
+        rapport_lr = rapport_lr + '\n          Ensemble: %2d, Class dist.: %s, Accuracy: %.3f' % (k+1,np.bincount(y_train[train]), score)
+
+    # validation croisée
+    print('\n\n\n\n\n Validation Croisée accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
+    rapport_lr = rapport_lr + '\n\n\n\n\n Validation Croisée accuracy: %.3f +/- %.3f \n' % (np.mean(scores), np.std(scores))
+    scores = cross_val_score(estimator=pipe_lr,
+                                X=X_train,
+                                y=y_train,
+                                cv=10,
+                                n_jobs=1)
+    print('Validation Croisée accuracy scores: %s' % scores)
+    rapport_lr = rapport_lr + '\n Validation Croisée accuracy scores: %s' % scores
+    print('Validation Croisée accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
+    rapport_lr = rapport_lr + '\n Validation Croisée accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores))
+
+    res_lr.text = rapport_lr
 
     
     
