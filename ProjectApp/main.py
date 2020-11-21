@@ -248,7 +248,7 @@ def update_reg_log():
     # # validation croisee stratifiée
     pipe_lr = make_pipeline(StandardScaler(),
                         LogisticRegression(penalty='l2', random_state=1,
-                                            solver='lbfgs', max_iter=10000))
+                                            solver='lbfgs', max_iter=100000))
     train_sizes, train_scores, test_scores = learning_curve(estimator=pipe_lr,
                                X=X_train,
                                y=y_train,
