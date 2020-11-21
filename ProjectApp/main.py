@@ -227,7 +227,7 @@ def update_reg_log():
     imputer = imputer.fit(X_test)
     X_test = imputer.transform(X_test)
 
-    # regression logitique avec statsmodels
+    # regression logistique avec statsmodels
     lr = MNLogit(endog=np.int64(y_train), exog=X_train)
     res = lr.fit()
     
