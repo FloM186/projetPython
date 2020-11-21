@@ -13,7 +13,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score, roc_curve, auc
 from sklearn.model_selection import cross_val_score, StratifiedKFold, learning_curve
 
 
@@ -193,6 +193,15 @@ data_conf = DataTable(source=source_conf, columns = columns,
                     width=900, height=200, sortable=True, 
                     editable=True, fit_columns=True, selectable=True )
 
+# courbe ROC
+source_roc_curve_lr = ColumnDataSource(data=dict(fpr=[], tpr=[]))
+roc_curve_lr = figure(title='Courbe ROC', plot_width=900, 
+                                            plot_height=400, hidpi=True)
+roc_curve_lr.add_layout(Title(text="Taux de Faux Positifs", align="center"), "below")
+roc_curve_lr.add_layout(Title(text="Taux de Vrais Positifs", align="center"), "left")
+roc_curve_lr.step('fpr', 'tpr', source=source_roc_curve_lr)
+roc_curve_lr.circle('fpr', 'tpr', source=source_roc_curve_lr, fill_color='red')
+
 # learnig curve pour la regression logistique 
 source_learn_curve_lr = ColumnDataSource(data=dict(train_sizes=[], train_mean=[],  
                                                 train_mean_p_train_std=[],
@@ -253,7 +262,7 @@ def update_reg_log():
     lr = MNLogit(endog=np.int64(y_train), exog=X_train)
     res = lr.fit()
     
-    model = LogisticRegression(penalty=penalty_lr_select.value, 
+    model = LogisticRegression(penalty=penalty_lr_select.value, random_state=1,
                                             C=spinner_c_lr.value).fit(X_train, y_train)
     y_pred = model.predict(X_test)
     
@@ -273,7 +282,7 @@ def update_reg_log():
 
     # # validation croisee stratifiée
     pipe_lr_cv = make_pipeline(StandardScaler(),
-                            LogisticRegression( penalty=penalty_lr_select.value, solver='lbfgs',
+                            LogisticRegression( random_state=1,penalty=penalty_lr_select.value, solver='lbfgs',
                                                 C=spinner_c_lr.value, max_iter=10000000))
     train_sizes, train_scores, test_scores = learning_curve(estimator=pipe_lr_cv,
                                X=X_train,
@@ -294,7 +303,16 @@ def update_reg_log():
                                     test_mean_m_test_std=(test_mean-test_std/6),
                                     test_mean=test_mean )
     
- 
+    # Courbe ROC
+    probas_lr = model.predict_proba(X_test)
+    
+    # les taux de vrais et faux positives
+    fpr, tpr, _ = roc_curve(labelEncoder_y.fit_transform(y_test), probas_lr[:,0], pos_label=0)
+    # get area under the curve
+    roc_auc = auc(fpr, tpr) 
+    source_roc_curve_lr.data = dict(fpr=fpr, tpr=tpr)
+
+
 
     # validation croisée stratifiée
     kfold = StratifiedKFold(n_splits=spinner_cv_lr.value).split(X_train, y_train)
@@ -308,20 +326,20 @@ def update_reg_log():
         pipe_lr_cv.fit(X_train[train], y_train[train])
         score = pipe_lr_cv.score(X_train[test], y_train[test])
         scores.append(score)
-        print('Ensemble: %2d, Classe dist.: %s, Accuracy: %.3f' % (k+1,np.bincount(y_train[train]), score))
+        
         rapport_lr = rapport_lr + '\n          Ensemble: %2d, Class dist.: %s, Accuracy: %.3f' % (k+1,np.bincount(y_train[train]), score)
 
     # validation croisée
-    print('\n\n\n\n\n Validation Croisée accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
+    
     rapport_lr = rapport_lr + '\n\n\n\n\n Validation Croisée accuracy: %.3f +/- %.3f \n' % (np.mean(scores), np.std(scores))
     scores = cross_val_score(estimator=pipe_lr_cv,
                                 X=X_train,
                                 y=y_train,
                                 cv=spinner_cv_lr.value,
                                 n_jobs=1)
-    print('Validation Croisée accuracy scores:' ,scores)
+    
     rapport_lr = rapport_lr + '\n Validation Croisée accuracy scores: %s' % list(scores)
-    print('Validation Croisée accuracy: %.3f +/- %.3f' % (np.mean(scores), np.std(scores)))
+    
     rapport_lr = rapport_lr + '\n Validation Croisée accuracy: %.3f +/- %.3f \n\n\n\n\n\n\n\n\n\n' % (np.mean(scores), np.std(scores))
     # rapport de la regression logistique et rapport de la classification
     res_lr.text = rapport_lr
@@ -560,11 +578,11 @@ scatter = Panel( child=Column( y_nuage_select, x_nuage_select, nuage ), title='N
 boxplot = Panel( child=Column( hist_quanti_select,hist_quanti ), title='Histogramme des variables numériques' )
 tabs_graphiques = Tabs(tabs=[scatter,boxplot], width=900)
 
-# affichage des méthodes de machine learning
+# affichage de la regression logistique
 logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_choice), 
                                 Row(slider_reg_log_train_test, strategy_imputer_reg_log),
                                 Row(penalty_lr_select, spinner_c_lr, spinner_cv_lr),
-                                data_conf,learn_curve_lr, res_lr ), title='Régression Logistique' )
+                                data_conf,roc_curve_lr,learn_curve_lr, res_lr ), title='Régression Logistique' )
 
 
 SVM = Panel( child=Row(), title='SVM' )
