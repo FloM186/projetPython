@@ -5,17 +5,22 @@ import pandas as pd
 
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 from sklearn.metrics import classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.preprocessing import PolynomialFeatures
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression,LinearRegression
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score, roc_curve, auc
 from sklearn.model_selection import cross_val_score, StratifiedKFold, learning_curve
+from sklearn.linear_model import Ridge
+from sklearn import datasets, linear_model
 
 from statsmodels.api import MNLogit
 
@@ -28,6 +33,12 @@ from bokeh.models import ( Spinner, ColumnDataSource, Title,
                         FileInput, PreText, Select, 
                         Panel, Tabs, MultiChoice, Slider )
 from bokeh.plotting import figure
+
+
+
+
+    
+
 
 
 # DataSet------------------------------------------------------------------------
@@ -88,6 +99,14 @@ def update_df_display(df):
 
     # CallBack des variables prédictives pour KNN 
     var_pred_knn_choice_options(df)
+    
+    # CallBack de la variable cible pour la régression polynomiale
+    var_cible_reg_poly_select_options(df)
+
+    # CallBack des variables prédictives pour la régression polynomiale
+    var_pred_reg_poly_choice_options(df)
+    
+    
 
 # fonction qui retourne les colonnes du dataset
 def get_column_list(df):
@@ -714,8 +733,72 @@ def update_knn():
     # rapport de la regression logistique et rapport de la classification
     res_knn.text = rapport_knn
 
+# Régression polynomiale ------------------------------------------------------------------
 
 
+
+var_cible_reg_poly_select = Select(title="Sélectionner la variable cible ", options = [])
+
+# CallBack du select de la variable prédictive pour les SVMs
+def var_cible_reg_poly_select_options(df):
+    var_cible_reg_poly_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
+
+# Selection des variables descriptives pour les SVMs
+var_pred_reg_poly_choice = Select(title="Sélection des variables Prédictives", options=[])
+
+# CallBack des Choix de variables predictives
+def var_pred_reg_poly_choice_options(df):
+    var_pred_reg_poly_choice.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
+
+# slider du partitionnement des données test et entrainement 
+slider_reg_poly_train_test = Slider(start=1, end=10, value=2, step=1, title="Degré du polynôme" )
+
+nuage_poly = figure(plot_width=900, plot_height=300)
+nuage_poly.vbar(x='x', top='y', source=source_nuage_poly, width=0.5)
+
+def polyfit(d):
+    polyn = PolynomialFeatures(degree=d)
+    x_ = polyn.fit_transform(X) #x_ contient les degrés et produits croisés
+    #Une fois qu'on a préparé les degrés on peut faire la régression
+    clf = linear_model.LinearRegression()
+    clf.fit(x_,var_pred_reg_poly_choice)
+    y1 = clf.predict(x_)
+    return y1
+
+# CallBack des features de la regression logistique 
+def update_reg_poly():
+    # la source de données pour la regression logistique 
+    df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
+
+    # la variable cible de la regression logistique
+    y = df[var_cible_reg_poly_select.value].values
+
+    # les variables cibles de la regression logistique 
+    X = df[var_pred_reg_poly_choice.value].values
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=slider_reg_poly_train_test.value,
+                                                        random_state=1, stratify=y)  
+
+
+    
+    # traitement des valeurs manquantes 
+    imputer = SimpleImputer(missing_values=np.nan, strategy = strategy_imputer_reg_log.value)
+    imputer = imputer.fit(X_train)
+    X_train = imputer.transform(X_train)
+    imputer = imputer.fit(X_test)
+    X_test = imputer.transform(X_test)
+    
+    
+    for i in range(2,16):
+        colname = "x_%slider_reg_poly_train_test"%i #New columname
+        data[colname] = data['x']**i
+    
+
+
+
+    for i in np.arange(1,slider_reg_poly_train_test,1):
+        colname = "Pow_%s"%i
+        pp = polyfit(i,X,y)
+        data_fit[colname] = pp
 
 
 # affichage de l'application
@@ -750,7 +833,14 @@ KNN= Panel( child= Column(Row( var_cible_knn_select, var_pred_knn_choice),
                                 Row(spinner_n_knn, spinner_cv_knn),
                                 data_conf_knn,roc_curve_knn,learn_curve_knn, res_knn ), title='K Plus Proches Voisins' )
 
-tabs_methods = Tabs(tabs=[logist, SVM, KNN], width=900)
+poly= Panel( child= Column(Row( var_cible_reg_poly_select, var_pred_reg_poly_choice),
+                                 Row(slider_reg_poly_train_test),
+                                 Row()                            
+                                 ), title='Régression Polynomiale' )
+
+
+
+tabs_methods = Tabs(tabs=[logist, SVM, KNN, poly], width=900)
 
 layout = column( file_input, tabs_df, data_table, tabs_graphiques, tabs_methods)
 
