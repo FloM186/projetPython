@@ -411,7 +411,7 @@ res_summ = PreText(text='', width=400)
 tableau_alpha =  PreText(text='', width=400)
 lin_mse = PreText(text='', width=400)
 temps_lin = PreText(text='', width=400, height=50)
-msg_pen = PreText(text="Si la pénalité affecté à L1 est de 0 l'analyse correspondra à une regression Ridge,\n si la pénalité est de 1 à une regression Lasso.\n Si la pénalité est comprise entre 0 et 1 cela correspondra à une analyse ElasticNet", width=400, height=50)
+msg_pen = PreText(text="Si la pénalité affecté à L1 est de 0 l'analyse correspondra à une régression Ridge,\n si la pénalité est de 1 à une regression Lasso.\n Si la pénalité est comprise entre 0 et 1 cela correspondra à une analyse ElasticNet", width=400, height=50)
 rapport_lin_cv = PreText(text='', width=400)
 rapport_lin_cv_avg = PreText(text='', width=400)
 
