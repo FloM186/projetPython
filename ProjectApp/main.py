@@ -397,7 +397,7 @@ slider_reg_lin_alpha = Slider(start=0, end=1, value=0.25, step=0.01, title="Vale
 slider_reg_lin_alpha_pas = Slider(start=0, end=1, value=0.05, step=0.01, title="Valeur du pas de alpha" )
 
 # Sélection de la pénalité L1
-slider_reg_lin_L1pen = Slider(start=0, end=1, value=0.45, step=0.01, title="Fraction de la pénalité affectée à L1 : Si 0 = regression ridge, si 1 = regression lasso" )
+slider_reg_lin_L1pen = Slider(start=0, end=1, value=0.45, step=0.01, title="Fraction de la pénalité affectée à L1" )
 
 # Sélection pour les strategies de valeurs manquantes
 strategy_imputer_reg_lin = Select(title='Stratégie de remplacement des valeurs manquantes', value='mean', 
@@ -412,6 +412,7 @@ tableau_alpha =  PreText(text='', width=400)
 lin_mse = PreText(text='', width=400)
 temps_lin = PreText(text='', width=400, height=50)
 res_lin = PreText(text='', width=400)
+msg_pen = PreText(text="Si la pénalité affecté à L1 est de 0 l'analyse correspondra à une regression Ridge, si la pénalité est de 1 à une regression Lasso. Si la pénalité est comprise entre 0 et 1 cela correspondra à une analyse ElasticNet", width=400, height=50)
 # Variables de la regression linéaire
 controls_reg_lin = [var_cible_reg_lin_select,var_pred_reg_lin_choice, strategy_imputer_reg_lin, slider_reg_lin_train_test, slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen]
 for control_reg_lin in controls_reg_lin:
@@ -506,8 +507,6 @@ def update_reg_lin():
             len(tableau_alphaT.index))
         ).tolist())
 
-    print(source_lines_reglin.data)
-
 
     # Temps d'éxcécution
     temps_lin.text = 'Le temps de calcul est de '+str(time.time() - start_time)+' secondes pour cette analyse'
@@ -517,7 +516,7 @@ def update_reg_lin():
 
 
 
-# Separateur à Vastes Marges (SVM=------------------------------------------------------------------------
+# Separateur à Vastes Marges (SVM)------------------------------------------------------------------------
 # Sélection de la colonne cible pour SVM
 var_cible_svm_select = Select(title="Sélectionner la variable cible ", options = [])
 # CallBack du select de la variable prédictive 
@@ -567,7 +566,7 @@ roc_curve_svm.add_layout(Title(text="Taux de Vrais Positifs", align="center"), "
 roc_curve_svm.step('fpr_svm', 'tpr_svm', source=source_roc_curve_svm)
 roc_curve_svm.circle('fpr_svm', 'tpr_svm', source=source_roc_curve_svm, fill_color='red')
 
-# Learnig curve pour la regression logistique 
+# Learnig curve pour les SVM
 source_learn_curve_svm = ColumnDataSource(data=dict(train_sizes_svm=[], train_mean_svm=[],  
                                                 train_mean_p_train_std_svm=[],
                                                 train_mean_m_train_std_svm=[],
@@ -925,7 +924,7 @@ logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_ch
 reglineaire = Panel( child= Column(Row(var_cible_reg_lin_select, var_pred_reg_lin_choice), 
                                 Row(slider_reg_lin_train_test, strategy_imputer_reg_lin),
                                 Row(slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen),
-                                temps_lin, res_summ, lin_mse, nuage_lin, tableau_alpha, lines_reglin, res_lin), title='Régression Linéaire Lasso/Ridge/ElasticNet' )
+                                msg_pen, temps_lin, res_summ, lin_mse, nuage_lin, tableau_alpha, lines_reglin, res_lin), title='Régression Linéaire Lasso/Ridge/ElasticNet' )
 
 # Affichage des SVM
 SVM= Panel( child= Column(Row( var_cible_svm_select, var_pred_svm_choice), 
