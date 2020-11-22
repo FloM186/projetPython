@@ -198,7 +198,7 @@ strategy_imputer_reg_log = Select(title='Stratégie de remplacement des valeurs 
 
 # resultat regression logistique avec statsmodels
 res_lr = PreText(text='', width=900, height=700)
-
+temps_lr = PreText(text='', width=900, height=50)
 # radioButton pour la pénalité a utiliser pour la regression logistique
 penalty = ['l2','l1','elasticnet','none']
 penalty_lr_select = Select(title = 'Penalité :', value = 'l2', options=penalty, width=300)
@@ -363,6 +363,9 @@ def update_reg_log():
     rapport_lr = rapport_lr + '\n Validation Croisée accuracy: %.3f +/- %.3f \n\n\n\n\n\n\n\n\n\n' % (np.mean(scores), np.std(scores))
     # rapport de la regression logistique et rapport de la classification
     res_lr.text = rapport_lr
+
+    #temps d'éxcécution
+    temps_lr.text = 'Le temps de calcul est de '+str(time.time() - start_time)+' secondes pour cette analyse'
 # Fin de la regression logistique---------------------------------------------------------------------------------- 
 
 
@@ -414,7 +417,7 @@ spinner_cv_lin = Spinner(title = 'Nombre de split de la validation croisée :', 
 res_summ = PreText(text='', width=400)
 tableau_alpha =  PreText(text='', width=400)
 lin_mse = PreText(text='', width=400)
-temps_lin = PreText(text='', width=400)
+temps_lin = PreText(text='', width=400, height=50)
 res_lin = PreText(text='', width=400)
 # Variables de la regression linéaire
 controls_reg_lin = [var_cible_reg_lin_select,var_pred_reg_lin_choice, strategy_imputer_reg_lin, slider_reg_lin_train_test, slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen]
@@ -567,7 +570,7 @@ strategy_imputer_svm = Select(title='Stratégie de remplacement des valeurs manq
 
 # resultat regression logistique matplotlib
 res_svm = PreText(text='', width=900, height=700)
-
+temps_svm = PreText(text='', width=900, height=50)
 # radioButton pour la pénalité a utiliser pour SVM
 kernel = ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed']
 kernel_svm_select = Select(title = 'Noyau :', value = 'linear', options=kernel, width=300)
@@ -627,6 +630,7 @@ for control_svm in controls_svm:
 
 # CallBack des features SVMs 
 def update_svm():
+    start_time = time.time()
     # la source de données pour SVM
     df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
 
@@ -727,7 +731,15 @@ def update_svm():
     
     # rapport de la regression logistique et rapport de la classification
     res_svm.text = rapport_svm
+    #temps d'éxcécution
+    temps_svm.text = 'Le temps de calcul est de '+str(time.time() - start_time)+' secondes pour cette analyse'
 # Fin de Separateur a vastes marges  ------------------------------------------------------------------------------
+
+
+
+
+
+
 
 # K plus proches voisins-------------------------------------------------------------------------------------------
 # outil pour la selection de la colonne cible pour KNN
@@ -751,7 +763,7 @@ strategy_imputer_knn = Select(title='Stratégie de remplacement des valeurs manq
 
 # resultat regression logistique matplotlib
 res_knn = PreText(text='', width=900, height=700)
-
+temps_knn = PreText(text='', width=900, height=50)
 # parametre n du nombre de voisins 
 spinner_n_knn = Spinner(title = 'Nombre de voisins', low=0, value=5, step=1, mode='int', width=300)
 
@@ -807,6 +819,7 @@ for control_knn in controls_knn:
 
 # CallBack des features SVMs 
 def update_knn():
+    start_time = time.time()
     # la source de données pour SVM
     df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
 
@@ -905,7 +918,9 @@ def update_knn():
     
     # rapport de la regression logistique et rapport de la classification
     res_knn.text = rapport_knn
-
+     #temps d'éxcécution
+    temps_knn.text = 'Le temps de calcul est de '+str(time.time() - start_time)+' secondes pour cette analyse'
+# fin K plus proches voisins-------------------------------------------------------------------------------------------
 
 
 
@@ -927,27 +942,27 @@ tabs_graphiques = Tabs(tabs=[scatter,boxplot], width=900)
 logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_choice), 
                                 Row(slider_reg_log_train_test, strategy_imputer_reg_log),
                                 Row(penalty_lr_select, spinner_c_lr, spinner_cv_lr),
-                                data_conf,roc_curve_lr,learn_curve_lr, res_lr ), title='Régression Logistique' )
+                                 temps_lr,data_conf,roc_curve_lr,learn_curve_lr, res_lr), title='Régression Logistique' )
 
 
 #affichage regression linéaire
 reglineaire = Panel( child= Column(Row(var_cible_reg_lin_select, var_pred_reg_lin_choice), 
                                 Row(slider_reg_lin_train_test, strategy_imputer_reg_lin),
                                 Row(slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen),
-                                res_summ, lin_mse, nuage_lin, tableau_alpha, lines_reglin,temps_lin, res_lin), title='Régression Linéaire' )
+                                temps_lin, res_summ, lin_mse, nuage_lin, tableau_alpha, lines_reglin, res_lin), title='Régression Linéaire Lasso/Ridge/ElasticNet' )
 
 # affichage des SVM
 SVM= Panel( child= Column(Row( var_cible_svm_select, var_pred_svm_choice), 
                                 Row(slider_svm_train_test, strategy_imputer_svm),
                                 Row(kernel_svm_select, spinner_c_svm, spinner_cv_svm),
-                                data_conf_svm,roc_curve_svm,learn_curve_svm, res_svm ), title='Séparateurs à vastes marges' )
+                                temps_svm,data_conf_svm,roc_curve_svm,learn_curve_svm, res_svm), title='Séparateurs à vastes marges' )
 
 
 # affichage de la KNN
 KNN= Panel( child= Column(Row( var_cible_knn_select, var_pred_knn_choice), 
                                 Row(slider_knn_train_test, strategy_imputer_knn),
                                 Row(spinner_n_knn, spinner_cv_knn),
-                                data_conf_knn,roc_curve_knn,learn_curve_knn, res_knn ), title='K Plus Proches Voisins' )
+                                temps_knn,data_conf_knn,roc_curve_knn,learn_curve_knn, res_knn), title='K Plus Proches Voisins' )
 
 tabs_methods = Tabs(tabs=[logist, SVM, KNN, reglineaire], width=900)
 
