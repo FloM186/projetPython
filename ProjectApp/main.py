@@ -383,6 +383,9 @@ slider_reg_lin_alpha = Slider(start=0, end=1, value=0.25, step=0.01, title="Vale
 # slider du alpha pas
 slider_reg_lin_alpha_pas = Slider(start=0, end=1, value=0.05, step=0.01, title="Valeur du pas de alpha" )
 
+# slider de la pénalité L1
+slider_reg_lin_L1pen = Slider(start=0, end=1, value=0.05, step=0.01, title="Valeur de la pénalité a L1 : Si 0 = regression ridge, si 1 regression lasso" )
+
 # select pour les strategies de valeurs manquantes
 strategy_imputer_reg_lin = Select(title='Stratégie de remplacement des valeurs manquantes', value='mean', 
                                 options=['mean','median','most_frequent'])
@@ -394,7 +397,6 @@ strategy_imputer_reg_lin = Select(title='Stratégie de remplacement des valeurs 
 res_summ = PreText(text='', width=400)
 tableau_alpha =  PreText(text='', width=400)
 lin_mse = PreText(text='', width=400)
-ressc_summ = PreText(text='', width=400)
 
 # Variables de la regression linéaire
 controls_reg_lin = [var_cible_reg_lin_select,var_pred_reg_lin_choice, strategy_imputer_reg_lin, slider_reg_lin_train_test, slider_reg_lin_alpha, slider_reg_lin_alpha_pas]
@@ -428,10 +430,10 @@ def update_reg_lin():
     imputer = SimpleImputer(missing_values=np.nan, strategy = strategy_imputer_reg_lin.value)
     imputer = imputer.fit(X_train)
     X_train = imputer.transform(X_train)
-    X_train = sm.add_constant(X_train)
+    #X_train = sm.add_constant(X_train)
     imputer = imputer.fit(X_test)
     X_test = imputer.transform(X_test)
-    X_test = sm.add_constant(X_test)
+    #X_test = sm.add_constant(X_test)
 
     # regression linéaire avec statsmodels
     linreg = sm.OLS(y_train,X_train)
@@ -451,17 +453,22 @@ def update_reg_lin():
 
     source_nuage_lin.data = dict( x=y_test, y=ypred)
 
-    #regression linéaire regularisée
-    #centrer réduire moyennes d'apprentissage
-    sc = StandardScaler()
-    X_trainsc = pd.DataFrame(sc.fit_transform(pd.DataFrame(X_train).values), columns=X_train.columns, index=X_train.index)
-    y_trainsc = pd.DataFrame(sc.fit_transform(pd.DataFrame(y_train).values), columns=y_train.columns, index=y_train.index)
-    print(X_trainsc)
-    print(y_trainsc)
-    linregsc = sm.OLS(y_trainsc,X_trainsc)
-    ressc = linregsc.fit()
-    ressc_summ.text = str(ressc.summary()) 
-    print(ressc.summary())
+    frames = []
+    for n in np.arange(0, slider_reg_lin_alpha.value, slider_reg_lin_alpha_pas.value).tolist():
+        results_fr = linreg.fit_regularized(L1_wt=slider_reg_lin_L1pen.value, alpha=n, start_params=res.params)
+
+        results_fr_fit = sm.regression.linear_model.OLSResults(linreg, 
+                                                                results_fr.params, 
+                                                                linreg.normalized_cov_params)
+        frames.append(np.append(results_fr.params, results_fr_fit.ssr))
+
+        df_des_alpha = pd.DataFrame(frames, columns=list(df[var_pred_reg_lin_choice.value].columns) + ['ssr*'])
+    df_des_alpha.index=np.arange(0, slider_reg_lin_alpha.value, slider_reg_lin_alpha_pas.value).tolist()
+    df_des_alpha.index.name = 'valeur de alpha :'
+    #affichage
+    tableau_alphaT = df_des_alpha.T
+    tableau_alpha.text = str(tableau_alphaT)
+    print(tableau_alphaT)
 # Fin de la regression linéaire---------------------------------------------------------------------------------- 
 
 
@@ -489,7 +496,7 @@ logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_ch
 reglineaire = Panel( child= Column(Row(var_cible_reg_lin_select, var_pred_reg_lin_choice), 
                                 Row(slider_reg_lin_train_test, strategy_imputer_reg_lin),
                                 Row(slider_reg_lin_alpha, slider_reg_lin_alpha_pas),
-                                res_summ, lin_mse, nuage_lin), title='Régression Linéaire' )
+                                res_summ, lin_mse, nuage_lin, tableau_alpha), title='Régression Linéaire' )
 SVM = Panel( child=Row(), title='SVM' )
 
 tabs_methods = Tabs(tabs=[logist, SVM, reglineaire], width=900)
