@@ -397,13 +397,13 @@ def var_pred_reg_lin_choice_options(df):
 slider_reg_lin_train_test = Slider(start=0, end=1, value=0.3, step=0.01, title="Proportion des données test" )
 
 # slider du alpha max
-slider_reg_lin_alpha = Slider(start=0, end=1, value=0.25, step=0.01, title="Valeur de alpha, correspond au coefficient de pénalité" )
+slider_reg_lin_alpha = Slider(start=0, end=1, value=0.25, step=0.01, title="Valeur de alpha (coefficient de pénalité)" )
 
 # slider du alpha pas
 slider_reg_lin_alpha_pas = Slider(start=0, end=1, value=0.05, step=0.01, title="Valeur du pas de alpha" )
 
 # slider de la pénalité L1
-slider_reg_lin_L1pen = Slider(start=0, end=1, value=0.45, step=0.01, title="Fraction de la pénalité affecté à L1 : Si 0 = regression ridge, si 1 regression lasso" )
+slider_reg_lin_L1pen = Slider(start=0, end=1, value=0.45, step=0.01, title="Fraction de la pénalité affectée à L1 : Si 0 = regression ridge, si 1 = regression lasso" )
 
 # select pour les strategies de valeurs manquantes
 strategy_imputer_reg_lin = Select(title='Stratégie de remplacement des valeurs manquantes', value='mean', 
@@ -527,6 +527,8 @@ def update_reg_lin():
 
     #temps d'éxcécution
     temps_lin.text = 'Le temps de calcul est de '+str(time.time() - start_time)+' secondes pour cette analyse'
+
+
 
 # Fin de la regression linéaire---------------------------------------------------------------------------------- 
 
