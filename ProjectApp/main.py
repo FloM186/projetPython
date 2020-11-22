@@ -647,6 +647,18 @@ def update_svm():
                                                     title = matrix_conf[column_name].name, 
                                                     editor = StringEditor()) for column_name in get_column_list(matrix_conf)]
     
+    
+    # Validation croisée stratifiée
+    pipe_svm_cv = make_pipeline(StandardScaler(),model)
+    train_sizes, train_scores, test_scores = learning_curve(estimator=pipe_svm_cv,
+                               X=X_train,
+                               y=y_train,
+                               train_sizes=np.linspace(0.1, 1.0, 10),
+                               cv=spinner_cv_svm.value,
+                               n_jobs=1)
+    kfold = StratifiedKFold(n_splits=spinner_cv_svm.value).split(X_train, y_train)
+    scores = []
+
     # Données de la learning curve
     train_mean = np.mean(train_scores, axis=1)
     train_std = np.std(train_scores, axis=1)
@@ -669,17 +681,7 @@ def update_svm():
     roc_auc = auc(fpr, tpr) 
     source_roc_curve_svm.data = dict(fpr_svm=fpr, tpr_svm=tpr)
     
-    # Validation croisée stratifiée
-    pipe_svm_cv = make_pipeline(StandardScaler(),model)
-    train_sizes, train_scores, test_scores = learning_curve(estimator=pipe_svm_cv,
-                               X=X_train,
-                               y=y_train,
-                               train_sizes=np.linspace(0.1, 1.0, 10),
-                               cv=spinner_cv_svm.value,
-                               n_jobs=1)
 
-    kfold = StratifiedKFold(n_splits=spinner_cv_svm.value).split(X_train, y_train)
-    scores = []
 
     # Affichage du rapport pour le SVM
     rapport_svm = 'Les indices des Vecteurs Supports : '+str(model.support_)+'\n'+'\n Vecteurs Supports : '+str(list(model.support_vectors_))
@@ -713,7 +715,7 @@ def update_svm():
 
 
 
-# K plus proches voisins------------------------------------------------------------------------
+# K plus proches voisins (KNN)------------------------------------------------------------------------
 # Sélection de la colonne cible pour KNN
 var_cible_knn_select = Select(title="Sélectionner la variable cible ", options = [])
 # CallBack du select de la variable prédictive 
@@ -838,7 +840,14 @@ def update_knn():
                                                     title = matrix_conf[column_name].name, 
                                                     editor = StringEditor()) for column_name in get_column_list(matrix_conf)]
     
- 
+    # Validation croisee stratifiée
+    pipe_knn_cv = make_pipeline(StandardScaler(),model)
+    train_sizes, train_scores, test_scores = learning_curve(estimator=pipe_knn_cv,
+                                X=X_train, y=y_train, 
+                                train_sizes=np.linspace(0.1, 1.0, 10),
+                                cv=spinner_cv_knn.value,
+                                n_jobs=1)
+
     # Données de la learnin curve KNN
     train_mean = np.mean(train_scores, axis=1)
     train_std = np.std(train_scores, axis=1)
@@ -851,7 +860,6 @@ def update_knn():
                                     test_mean_m_test_std_knn=(test_mean-test_std/6),
                                     test_mean_knn=test_mean )
     
-     
     # Courbe ROC
     probas_knn = model.predict_proba(X_test)
 
@@ -861,15 +869,7 @@ def update_knn():
     # Aire sous la courbe
     roc_auc = auc(fpr, tpr) 
     source_roc_curve_knn.data = dict(fpr_knn=fpr, tpr_knn=tpr)
-
-    # Validation croisee stratifiée
-    pipe_knn_cv = make_pipeline(StandardScaler(),model)
-    train_sizes, train_scores, test_scores = learning_curve(estimator=pipe_knn_cv,
-                                X=X_train, y=y_train, 
-                                train_sizes=np.linspace(0.1, 1.0, 10),
-                                cv=spinner_cv_knn.value,
-                                n_jobs=1)
-                                
+                           
     # Affichage du rapport de l'analyse KNN
     rapport_knn = "Les Classes détectés par l'algorithme:"+str(model.classes_)+'\n'+'La métrique utilisée : '+str(model.effective_metric_)+'\n'+str(class_report)+'\n Accuracy score : '+str(accuracy_score(y_test, y_pred))
     rapport_knn = rapport_knn+'\n\n\n\n\n Validation Croisée Stratifiée :'
