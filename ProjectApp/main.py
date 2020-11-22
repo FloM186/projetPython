@@ -16,13 +16,15 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score, roc_curve, auc
 from sklearn.model_selection import cross_val_score, StratifiedKFold, learning_curve
-
+from sklearn.linear_model import ElasticNetCV
 
 from statsmodels.api import MNLogit
 import statsmodels.api as sm
 
-from bokeh.transform import linear_cmap
-from bokeh.palettes import Spectral6
+import itertools  
+import numpy as np
+from bokeh.plotting import figure, output_file, show
+from bokeh.palettes import Viridis as palette
 from bokeh.models.layouts import Column, Row
 from bokeh.models.widgets.tables import StringEditor
 from bokeh.io import curdoc
@@ -398,7 +400,8 @@ slider_reg_lin_L1pen = Slider(start=0, end=1, value=0.45, step=0.01, title="Frac
 strategy_imputer_reg_lin = Select(title='Stratégie de remplacement des valeurs manquantes', value='mean', 
                                 options=['mean','median','most_frequent'])
 
-
+# nombre de splits dans la validation croisée
+spinner_cv_lin = Spinner(title = 'Nombre de split de la validation croisée :', low=1, value=5, step=1, mode='int', width=300)
 
 # resultat regression linéaire affichage
 
@@ -406,6 +409,7 @@ res_summ = PreText(text='', width=400)
 tableau_alpha =  PreText(text='', width=400)
 lin_mse = PreText(text='', width=400)
 temps_lin = PreText(text='', width=400)
+res_lin = PreText(text='', width=400)
 # Variables de la regression linéaire
 controls_reg_lin = [var_cible_reg_lin_select,var_pred_reg_lin_choice, strategy_imputer_reg_lin, slider_reg_lin_train_test, slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen]
 for control_reg_lin in controls_reg_lin:
@@ -426,7 +430,12 @@ nuage_lin.yaxis.axis_label = 'Valeurs prédites'
 #mapper = linear_cmap(field_name='y', palette=Spectral6 ,low=min(y) ,high=max(y), source=source_lines_reglin)
 source_lines_reglin = ColumnDataSource(data=dict(x=[], y=[]))
 lines_reglin = figure(plot_width=900, plot_height=300,title="Représentation des coefficients des variables en fonction de la valeur de alpha")
-lines_reglin.multi_line(x='x', y='y',line_width=2)
+lines_reglin.multi_line('x','y',line_width=2, source=source_lines_reglin)
+#colors = itertools.cycle(palette)    
+#leg= list(df[var_pred_reg_lin_choice.value].columns)
+#for m, color, legende in zip(range(len(df[var_pred_reg_lin_choice.value].columns)), colors, leg):
+    #lines_reglin.line(source_lines_reglin.data['x'][m],source_lines_reglin.data['y'][m], legend_label=str(leg).format(m), color=color)
+#lines_reglin.legend.location='top_left'
 lines_reglin.xaxis.axis_label = 'Valeur de alpha (coefficient de pénalité)'
 lines_reglin.yaxis.axis_label = 'Valeur des coefficients'
 
@@ -458,7 +467,7 @@ def update_reg_lin():
     
     res_summ.text = str(res.summary())  
 
-    class_report=classification_report(y_test, y_pred)
+    
 
     #prediction régression linéaire 
     y_pred = linreg.predict(res.params,X_test)
@@ -484,17 +493,33 @@ def update_reg_lin():
     tableau_alphaT = df_des_alpha.T.drop(index="ssr*")
     tableau_alpha.text = str(tableau_alphaT)
 
-    source_lines_reglin.data = dict( x=np.array_split(np.repeat(np.arange(0, slider_reg_lin_alpha.value, slider_reg_lin_alpha_pas.value).tolist(),len(tableau_alphaT.index)),len(tableau_alphaT.index)) ,
-     y=np.array_split(tableau_alphaT.values, len(tableau_alphaT.index)))
+    source_lines_reglin.data = dict( 
+        x=np.array(
+            np.array_split(
+                np.array(
+                    np.array_split(
+                        np.array(list(
+                            np.arange(0, slider_reg_lin_alpha.value, slider_reg_lin_alpha_pas.value))*len(tableau_alphaT.index)),
+                        len(tableau_alphaT.index)),
+                     ).ravel(),
+            len(tableau_alphaT.index))
+        ).tolist(),
+
+        y=np.array(
+            np.array_split(
+                np.array(
+                    np.array_split(tableau_alphaT.values, len(tableau_alphaT.index))
+                    ).ravel(),
+            len(tableau_alphaT.index))
+        ).tolist())
 
     print(source_lines_reglin.data)
 
+
     #temps d'éxcécution
-    temps_lin = 'Le temps de calcul est de '+str("%s secondes" % (time.time() - start_time))+' pour cette analyse'
-    print(temps_lin)
+    temps_lin.text = 'Le temps de calcul est de '+str(time.time() - start_time)+' secondes pour cette analyse'
+
 # Fin de la regression linéaire---------------------------------------------------------------------------------- 
-
-
 
 
 
@@ -724,7 +749,7 @@ logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_ch
 reglineaire = Panel( child= Column(Row(var_cible_reg_lin_select, var_pred_reg_lin_choice), 
                                 Row(slider_reg_lin_train_test, strategy_imputer_reg_lin),
                                 Row(slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen),
-                                temps_lin, res_summ, lin_mse, nuage_lin, tableau_alpha, lines_reglin), title='Régression Linéaire' )
+                                res_summ, lin_mse, nuage_lin, tableau_alpha, lines_reglin,temps_lin, res_lin), title='Régression Linéaire' )
 
 # affichage des SVM
 SVM= Panel( child= Column(Row( var_cible_svm_select, var_pred_svm_choice), 
