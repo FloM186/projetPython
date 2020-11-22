@@ -425,7 +425,7 @@ nuage_lin.yaxis.axis_label = 'Valeurs prédites'
 #mapper = linear_cmap(field_name='y', palette=Spectral6 ,low=min(y) ,high=max(y), source=source_lines_reglin)
 source_lines_reglin = ColumnDataSource(data=dict(x=[], y=[]))
 lines_reglin = figure(plot_width=900, plot_height=300,title="Représentation des coefficients des variables en fonction de la valeur de alpha")
-lines_reglin.vline_stack(y='y'[i] for i in np.arange(0, len(tableau_alphaT.index),1), x='x',line_width=2, source=source_lines_reglin)
+lines_reglin.vline_stack([source_lines_reglin.data['y'][i] for i in np.arange(0, len(list(df[var_pred_reg_lin_choice.value].columns)),1)], x=source_lines_reglin.data['x'],line_width=2)
 lines_reglin.xaxis.axis_label = 'Valeur de alpha (coefficient de pénalité)'
 lines_reglin.yaxis.axis_label = 'Valeur des coefficients'
 
