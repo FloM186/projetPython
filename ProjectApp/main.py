@@ -352,7 +352,7 @@ def update_reg_log():
 var_cible_svm_select = Select(title="Sélectionner la variable cible ", options = [])
 # CallBack du select de la variable prédictive 
 def var_cible_svm_select_options(df):
-    var_cible_svm_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['object']))))
+    var_cible_svm_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['object','int64']))))
 
 # Selection des variables descriptives pour les SVMs
 var_pred_svm_choice = MultiChoice(title="Sélection des variables Prédictives", options=[])
@@ -394,8 +394,8 @@ roc_curve_svm = figure(title='Courbe ROC', plot_width=900,
                                             plot_height=400, hidpi=True)
 roc_curve_svm.add_layout(Title(text="Taux de Faux Positifs", align="center"), "below")
 roc_curve_svm.add_layout(Title(text="Taux de Vrais Positifs", align="center"), "left")
-roc_curve_svm.step('fpr', 'tpr', source=source_roc_curve_svm)
-roc_curve_svm.circle('fpr', 'tpr', source=source_roc_curve_svm, fill_color='red')
+roc_curve_svm.step('fpr_svm', 'tpr_svm', source=source_roc_curve_svm)
+roc_curve_svm.circle('fpr_svm', 'tpr_svm', source=source_roc_curve_svm, fill_color='red')
 
 # learnig curve pour la regression logistique 
 source_learn_curve_svm = ColumnDataSource(data=dict(train_sizes_svm=[], train_mean_svm=[],  
@@ -407,15 +407,15 @@ source_learn_curve_svm = ColumnDataSource(data=dict(train_sizes_svm=[], train_me
 learn_curve_svm = figure(title="Accuracy", title_location="left", plot_width=900, 
                                             plot_height=400, hidpi=True)
 learn_curve_svm.add_layout(Title(text="number of training examples", align="center"), "below")
-learn_curve_svm.varea('train_sizes', 'train_mean_p_train_std','train_mean_m_train_std',
+learn_curve_svm.varea('train_sizes_svm', 'train_mean_p_train_std_svm','train_mean_m_train_std_svm',
                                     source = source_learn_curve_svm, fill_color= "lightskyblue")
-learn_curve_svm.line( 'train_sizes', 'train_mean', source = source_learn_curve_svm )
-learn_curve_svm.circle( 'train_sizes', 'train_mean', source = source_learn_curve_svm,
+learn_curve_svm.line( 'train_sizes_svm', 'train_mean_svm', source = source_learn_curve_svm )
+learn_curve_svm.circle( 'train_sizes_svm', 'train_mean_svm', source = source_learn_curve_svm,
                                 size = 15, fill_color='blue', legend_label='training accuracy')
-learn_curve_svm.varea('train_sizes', 'test_mean_p_test_std','test_mean_m_test_std',
+learn_curve_svm.varea('train_sizes_svm', 'test_mean_p_test_std_svm','test_mean_m_test_std_svm',
                                             source = source_learn_curve_svm, fill_color= "palegreen")
-learn_curve_svm.line('train_sizes', 'test_mean', source=source_learn_curve_svm)
-learn_curve_svm.circle( 'train_sizes', 'test_mean', source = source_learn_curve_svm,
+learn_curve_svm.line('train_sizes_svm', 'test_mean_svm', source=source_learn_curve_svm)
+learn_curve_svm.circle( 'train_sizes_svm', 'test_mean_svm', source = source_learn_curve_svm,
                                             size = 15, fill_color='green', legend_label='validation accuracy')
 learn_curve_svm.legend.location = 'bottom_right'
 
