@@ -2,8 +2,8 @@ from os.path import dirname, join
 import io
 
 import pandas as pd 
-
 import numpy as np
+import time
 
 from sklearn.metrics import classification_report
 from sklearn.metrics import mean_squared_error
@@ -250,6 +250,7 @@ for control_reg_log in controls_reg_log:
 
 # CallBack des features de la regression logistique 
 def update_reg_log():
+    start_time = time.time()
     # la source de données pour la regression logistique 
     df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
 
@@ -400,11 +401,11 @@ strategy_imputer_reg_lin = Select(title='Stratégie de remplacement des valeurs 
 
 
 # resultat regression linéaire affichage
-#res_lr = PreText(text='', width=900, height=700)
+
 res_summ = PreText(text='', width=400)
 tableau_alpha =  PreText(text='', width=400)
 lin_mse = PreText(text='', width=400)
-
+temps_lin = PreText(text='', width=400)
 # Variables de la regression linéaire
 controls_reg_lin = [var_cible_reg_lin_select,var_pred_reg_lin_choice, strategy_imputer_reg_lin, slider_reg_lin_train_test, slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen]
 for control_reg_lin in controls_reg_lin:
@@ -425,12 +426,13 @@ nuage_lin.yaxis.axis_label = 'Valeurs prédites'
 #mapper = linear_cmap(field_name='y', palette=Spectral6 ,low=min(y) ,high=max(y), source=source_lines_reglin)
 source_lines_reglin = ColumnDataSource(data=dict(x=[], y=[]))
 lines_reglin = figure(plot_width=900, plot_height=300,title="Représentation des coefficients des variables en fonction de la valeur de alpha")
-lines_reglin.vline_stack([source_lines_reglin.data['y'][i] for i in np.arange(0, len(list(df[var_pred_reg_lin_choice.value].columns)),1)], x=source_lines_reglin.data['x'],line_width=2)
+lines_reglin.multi_line(x='x', y='y',line_width=2)
 lines_reglin.xaxis.axis_label = 'Valeur de alpha (coefficient de pénalité)'
 lines_reglin.yaxis.axis_label = 'Valeur des coefficients'
 
 # CallBack des features de la regression linéaire
 def update_reg_lin():
+    start_time = time.time()
     # la source de données pour la regression linéaire 
     df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
 
@@ -456,13 +458,15 @@ def update_reg_lin():
     
     res_summ.text = str(res.summary())  
 
+    class_report=classification_report(y_test, y_pred)
+
     #prediction régression linéaire 
-    ypred = linreg.predict(res.params,X_test)
+    y_pred = linreg.predict(res.params,X_test)
     
     #calcule MSE
-    lin_mse.text = '\n\n La Mean Squared Error pour ce modèle est de :'+str(mean_squared_error(y_test,ypred))
+    lin_mse.text = '\n\n La Mean Squared Error pour ce modèle est de :'+str(mean_squared_error(y_test,y_pred))
 
-    source_nuage_lin.data = dict( x=y_test, y=ypred)
+    source_nuage_lin.data = dict( x=y_test, y=y_pred)
 
     frames = []
     for n in np.arange(0, slider_reg_lin_alpha.value, slider_reg_lin_alpha_pas.value).tolist():
@@ -480,10 +484,35 @@ def update_reg_lin():
     tableau_alphaT = df_des_alpha.T.drop(index="ssr*")
     tableau_alpha.text = str(tableau_alphaT)
 
-    source_lines_reglin.data = dict( x=np.arange(0, slider_reg_lin_alpha.value, slider_reg_lin_alpha_pas.value).tolist(),
+    source_lines_reglin.data = dict( x=np.array_split(np.repeat(np.arange(0, slider_reg_lin_alpha.value, slider_reg_lin_alpha_pas.value).tolist(),len(tableau_alphaT.index)),len(tableau_alphaT.index)) ,
      y=np.array_split(tableau_alphaT.values, len(tableau_alphaT.index)))
-    
+
+    print(source_lines_reglin.data)
+
+    #temps d'éxcécution
+    temps_lin = 'Le temps de calcul est de '+str("%s secondes" % (time.time() - start_time))+' pour cette analyse'
+    print(temps_lin)
 # Fin de la regression linéaire---------------------------------------------------------------------------------- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # Separateur a vastes marges---------------------------------------------------------------------------------------
 # outil pour la selection de la colonne cible pour SVM
@@ -695,7 +724,7 @@ logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_ch
 reglineaire = Panel( child= Column(Row(var_cible_reg_lin_select, var_pred_reg_lin_choice), 
                                 Row(slider_reg_lin_train_test, strategy_imputer_reg_lin),
                                 Row(slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen),
-                                res_summ, lin_mse, nuage_lin, tableau_alpha, lines_reglin), title='Régression Linéaire' )
+                                temps_lin, res_summ, lin_mse, nuage_lin, tableau_alpha, lines_reglin), title='Régression Linéaire' )
 
 # affichage des SVM
 SVM= Panel( child= Column(Row( var_cible_svm_select, var_pred_svm_choice), 
