@@ -13,6 +13,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score, roc_curve, auc
 from sklearn.model_selection import cross_val_score, StratifiedKFold, learning_curve
 
@@ -81,6 +82,12 @@ def update_df_display(df):
 
     # CallBack des variables prédictives pour SVM 
     var_pred_svm_choice_options(df)
+
+    # CallBack de la variable cible pour KNN
+    var_cible_knn_select_options(df)
+
+    # CallBack des variables prédictives pour KNN 
+    var_pred_knn_choice_options(df)
 
 # fonction qui retourne les colonnes du dataset
 def get_column_list(df):
@@ -371,7 +378,7 @@ res_svm = PreText(text='', width=900, height=700)
 
 # radioButton pour la pénalité a utiliser pour SVM
 kernel = ['linear', 'poly', 'rbf', 'sigmoid', 'precomputed']
-kernel_svm_select = Select(title = 'Penalité :', value = 'linear', options=kernel, width=300)
+kernel_svm_select = Select(title = 'Noyau :', value = 'linear', options=kernel, width=300)
 
 # parametre C du probleme de minisation pour SVM
 spinner_c_svm = Spinner(title = 'Paramètre optimisation C', low=0, value=1, step=0.01, width=300)
@@ -528,9 +535,188 @@ def update_svm():
     
     # rapport de la regression logistique et rapport de la classification
     res_svm.text = rapport_svm
-
-
 # Fin de Separateur a vastes marges  ------------------------------------------------------------------------------
+
+# K plus proches voisins-------------------------------------------------------------------------------------------
+# outil pour la selection de la colonne cible pour KNN
+var_cible_knn_select = Select(title="Sélectionner la variable cible ", options = [])
+# CallBack du select de la variable prédictive 
+def var_cible_knn_select_options(df):
+    var_cible_knn_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['object','int64']))))
+
+# Selection des variables descriptives pour les SVMs
+var_pred_knn_choice = MultiChoice(title="Sélection des variables Prédictives", options=[])
+# CallBack des Choix de variables predictives
+def var_pred_knn_choice_options(df):
+    var_pred_knn_choice.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
+
+# slider du partitionnement des données test et entrainement 
+slider_knn_train_test = Slider(start=0, end=1, value=0.3, step=0.01, title="Proportion des données test" )
+
+# select pour les strategies de valeurs manquantes pour SVM
+strategy_imputer_knn = Select(title='Stratégie de remplacement des valeurs manquantes', value='mean', 
+                                options=['mean','median','most_frequent'])
+
+# resultat regression logistique matplotlib
+res_knn = PreText(text='', width=900, height=700)
+
+# parametre n du nombre de voisins 
+spinner_n_knn = Spinner(title = 'Nombre de voisins', low=0, value=5, step=1, mode='int', width=300)
+
+# nombre de splits dans la validation croisée
+spinner_cv_knn = Spinner(title = 'Nombre de split de la validation croisée :', low=1, value=5, step=1, mode='int', width=300)
+
+# dataframe pour l affichage de la matrice de confusion
+matrix_conf_knn = pd.DataFrame()
+source_conf_knn = ColumnDataSource(data=dict(matrix_conf_knn))
+columns_conf_knn = []
+data_conf_knn = DataTable(source=source_conf_knn, columns = columns_conf_knn,
+                    width=900, height=200, sortable=True, 
+                    editable=True, fit_columns=True, selectable=True )
+
+# courbe ROC
+source_roc_curve_knn = ColumnDataSource(data=dict(fpr_knn=[], tpr_knn=[]))
+roc_curve_knn = figure(title='Courbe ROC', plot_width=900, 
+                                            plot_height=400, hidpi=True)
+roc_curve_knn.add_layout(Title(text="Taux de Faux Positifs", align="center"), "below")
+roc_curve_knn.add_layout(Title(text="Taux de Vrais Positifs", align="center"), "left")
+roc_curve_knn.step('fpr_knn', 'tpr_knn', source=source_roc_curve_knn)
+roc_curve_knn.circle('fpr_knn', 'tpr_knn', source=source_roc_curve_knn, fill_color='red')
+
+# learnig curve pour la regression logistique 
+source_learn_curve_knn = ColumnDataSource(data=dict(train_sizes_knn=[], train_mean_knn=[],  
+                                                train_mean_p_train_std_knn=[],
+                                                train_mean_m_train_std_knn=[],
+                                                test_mean_knn=[],
+                                                test_mean_p_test_std_knn=[],
+                                                test_mean_m_test_std_knn=[]))
+learn_curve_knn = figure(title="Accuracy", title_location="left", plot_width=900, 
+                                            plot_height=400, hidpi=True)
+learn_curve_knn.add_layout(Title(text="number of training examples", align="center"), "below")
+learn_curve_knn.varea('train_sizes_knn', 'train_mean_p_train_std_knn','train_mean_m_train_std_knn',
+                                    source = source_learn_curve_knn, fill_color= "lightskyblue")
+learn_curve_knn.line( 'train_sizes_knn', 'train_mean_knn', source = source_learn_curve_knn )
+learn_curve_knn.circle( 'train_sizes_knn', 'train_mean_knn', source = source_learn_curve_knn,
+                                size = 15, fill_color='blue', legend_label='training accuracy')
+learn_curve_knn.varea('train_sizes_knn', 'test_mean_p_test_std_knn','test_mean_m_test_std_knn',
+                                            source = source_learn_curve_knn, fill_color= "palegreen")
+learn_curve_knn.line('train_sizes_knn', 'test_mean_knn', source=source_learn_curve_knn)
+learn_curve_knn.circle( 'train_sizes_knn', 'test_mean_knn', source = source_learn_curve_knn,
+                                            size = 15, fill_color='green', legend_label='validation accuracy')
+learn_curve_knn.legend.location = 'bottom_right'
+
+# Variables KNN
+controls_knn = [var_cible_knn_select,
+                    var_pred_knn_choice, strategy_imputer_knn,
+                    slider_knn_train_test,
+                    spinner_cv_knn, spinner_n_knn]
+for control_knn in controls_knn:
+    control_knn.on_change('value', lambda attr,old,new: update_knn())
+
+# CallBack des features SVMs 
+def update_knn():
+    # la source de données pour SVM
+    df = pd.read_csv(join(dirname(__file__), 'datasets/'+file_input.filename))
+
+
+    # la variable cible de SVM
+    y = df[var_cible_knn_select.value].values
+
+    # les variables cibles de SVM
+    X = df[var_pred_knn_choice.value].values
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=slider_knn_train_test.value,
+                                                        random_state=1, stratify=y)
+    
+    # encodage des variables cibles categorielles qui ne sont pas numerique
+    labelEncoder_y = LabelEncoder()
+    if(y.dtype == 'object'):
+        y_train = labelEncoder_y.fit_transform(y_train)
+        y_test = labelEncoder_y.fit_transform(y_test)
+    
+    # traitement des valeurs manquantes 
+    imputer = SimpleImputer(missing_values=np.nan, strategy = strategy_imputer_knn.value)
+    imputer = imputer.fit(X_train)
+    X_train = imputer.transform(X_train)
+    imputer = imputer.fit(X_test)
+    X_test = imputer.transform(X_test)
+
+    model = KNeighborsClassifier(n_neighbors=spinner_n_knn.value)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+
+    matrix_conf = pd.DataFrame( np.array(confusion_matrix(y_test, y_pred)),
+                                            index=np.unique(y), columns=[str(i) for i in np.unique(y)] )
+    matrix_conf.insert(0, "Observations\Prédictions", np.unique(y), True)
+
+    class_report=classification_report(y_test, y_pred)
+
+    # CallBack des colonnes (TableColumn) pour l affichage de la table (DataTable) 
+    source_conf_knn.data = {matrix_conf[column_name].name : matrix_conf[column_name] for column_name in get_column_list(matrix_conf)}
+    data_conf_knn.source = source_conf_knn
+    data_conf_knn.columns = [TableColumn(field = matrix_conf[column_name].name, 
+                                                    title = matrix_conf[column_name].name, 
+                                                    editor = StringEditor()) for column_name in get_column_list(matrix_conf)]
+    
+    # # validation croisee stratifiée
+    pipe_knn_cv = make_pipeline(StandardScaler(),model)
+    train_sizes, train_scores, test_scores = learning_curve(estimator=pipe_knn_cv,
+                                X=X_train, y=y_train, 
+                                train_sizes=np.linspace(0.1, 1.0, 10),
+                                cv=spinner_cv_knn.value,
+                                n_jobs=1)
+    
+    train_mean = np.mean(train_scores, axis=1)
+    train_std = np.std(train_scores, axis=1)
+    test_mean = np.mean(test_scores, axis=1)
+    test_std = np.std(test_scores, axis=1)
+
+    source_learn_curve_knn.data = dict( train_sizes_knn=train_sizes, train_mean_knn=train_mean,
+                                    train_mean_p_train_std_knn=(train_mean+train_std/3), 
+                                    train_mean_m_train_std_knn=(train_mean-train_std/3),
+                                    test_mean_p_test_std_knn=(test_mean+test_std/6),
+                                    test_mean_m_test_std_knn=(test_mean-test_std/6),
+                                    test_mean_knn=test_mean )
+    
+     
+    # Courbe ROC
+    probas_knn = model.predict_proba(X_test)
+
+    # les taux de vrais et faux positives
+    fpr, tpr, _ = roc_curve(labelEncoder_y.fit_transform(y_test), probas_knn[:,0], pos_label=0)
+    # get area under the curve
+    roc_auc = auc(fpr, tpr) 
+    source_roc_curve_knn.data = dict(fpr_knn=fpr, tpr_knn=tpr)
+
+    # validation croisée stratifiée
+    kfold = StratifiedKFold(n_splits=spinner_cv_knn.value).split(X_train, y_train)
+    scores = []
+    # rapport knn
+    rapport_knn = "Les Classes détectés par l'algorithme:"+str(model.classes_)+'\n'+'La métrique utilisée : '+str(model.effective_metric_)+'\n'+str(class_report)+'\n Accuracy score : '+str(accuracy_score(y_test, y_pred))
+    rapport_knn = rapport_knn+'\n\n\n\n\n Validation Croisée Stratifiée :'
+
+    for k, (train, test) in enumerate(kfold):
+        pipe_knn_cv.fit(X_train[train], y_train[train])
+        score = pipe_knn_cv.score(X_train[test], y_train[test])
+        scores.append(score)
+        
+        rapport_knn = rapport_knn + '\n          Ensemble: %2d, Class dist.: %s, Accuracy: %.3f' % (k+1,np.bincount(y_train[train]), score)
+    
+    scores = cross_val_score(estimator=pipe_knn_cv,
+                                X=X_train,
+                                y=y_train,
+                                cv=spinner_cv_knn.value,
+                                n_jobs=1)
+    
+    rapport_knn = rapport_knn + '\n Validation Croisée accuracy scores: %s' % list(scores)
+    
+    rapport_knn = rapport_knn + '\n Validation Croisée accuracy: %.3f +/- %.3f \n\n\n\n\n\n\n\n\n\n' % (np.mean(scores), np.std(scores))
+    
+    # rapport de la regression logistique et rapport de la classification
+    res_knn.text = rapport_knn
+
+
+
+
 
 # affichage de l'application
 
@@ -552,13 +738,19 @@ logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_ch
                                 data_conf,roc_curve_lr,learn_curve_lr, res_lr ), title='Régression Logistique' )
 
 
-# affichage de la regression logistique
+# affichage de la SVM
 SVM= Panel( child= Column(Row( var_cible_svm_select, var_pred_svm_choice), 
                                 Row(slider_svm_train_test, strategy_imputer_svm),
                                 Row(kernel_svm_select, spinner_c_svm, spinner_cv_svm),
                                 data_conf_svm,roc_curve_svm,learn_curve_svm, res_svm ), title='Séparateurs à vastes marges' )
 
-tabs_methods = Tabs(tabs=[logist, SVM], width=900)
+# affichage de la KNN
+KNN= Panel( child= Column(Row( var_cible_knn_select, var_pred_knn_choice), 
+                                Row(slider_knn_train_test, strategy_imputer_knn),
+                                Row(spinner_n_knn, spinner_cv_knn),
+                                data_conf_knn,roc_curve_knn,learn_curve_knn, res_knn ), title='K Plus Proches Voisins' )
+
+tabs_methods = Tabs(tabs=[logist, SVM, KNN], width=900)
 
 layout = column( file_input, tabs_df, data_table, tabs_graphiques, tabs_methods)
 
