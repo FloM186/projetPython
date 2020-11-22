@@ -78,6 +78,12 @@ def update_df_display(df):
     # CallBack des variables prédictives pour la regression logistique 
     var_pred_reg_log_choice_options(df)
 
+    # CallBack des variables prédictives pour la regression linéaire
+    var_pred_reg_lin_choice_options(df)
+
+    # CallBack de la variable cible pour la regression linéaire
+    var_cible_reg_lin_select_options(df)
+
 # fonction qui retourne les colonnes du dataset
 def get_column_list(df):
     column_list=[]
@@ -351,12 +357,15 @@ def update_reg_log():
 
 
 
+
+
+
 # Regression Linéaire--------------------------------------------------------------------------------------------
 # outil pour la selection de la colonne cible pour la régression linéaire
 var_cible_reg_lin_select = Select(title="Sélectionner la variable cible :", options = [])
 # CallBack du select de la variable prédictive 
 def var_cible_reg_lin_select_options(df):
-    var_cible_reg_lin_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['object','int64']))))
+    var_cible_reg_lin_select.options = list(np.append(['------'],get_column_list( df.select_dtypes(include=['float64','int64']))))
 
 # Selection des variables predictives 
 var_pred_reg_lin_choice = MultiChoice(title="Sélection des variables Prédictives", options=[])
@@ -385,13 +394,23 @@ strategy_imputer_reg_lin = Select(title='Stratégie de remplacement des valeurs 
 res_summ = PreText(text='', width=400)
 tableau_alpha =  PreText(text='', width=400)
 lin_mse = PreText(text='', width=400)
-resu_summ = PreText(text='', width=400)
+ressc_summ = PreText(text='', width=400)
 
 # Variables de la regression linéaire
-controls_reg_lin = [var_cible_reg_lin_select,var_pred_reg_lin_choice, strategy_imputer_reg_lin, slider_reg_lin_train_test]
+controls_reg_lin = [var_cible_reg_lin_select,var_pred_reg_lin_choice, strategy_imputer_reg_lin, slider_reg_lin_train_test, slider_reg_lin_alpha, slider_reg_lin_alpha_pas]
 for control_reg_lin in controls_reg_lin:
     control_reg_lin.on_change('value', lambda attr,old,new: update_reg_lin())
 
+
+
+# plot nuage regression
+# donnees du nuage de points 
+source_nuage_lin = ColumnDataSource(data=dict(x=[], y=[]))
+# figure du nuage de points
+nuage_lin = figure(plot_width=900, plot_height=300, title="valeurs observées de l'échantillonnage d'entraînement comparé aux valeurs prédites par le modèle de regression linéaire")
+nuage_lin.circle(x='x', y='x', source=source_nuage_lin)
+nuage_lin.xaxis.axis_label = 'Valeurs observées'
+nuage_lin.yaxis.axis_label = 'Valeurs prédites'
 
 # CallBack des features de la regression linéaire
 def update_reg_lin():
@@ -403,68 +422,46 @@ def update_reg_lin():
 
     # les variables cibles de la regression linéaire 
     X = df[var_pred_reg_lin_choice.value].values
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=slider_reg_lin_train_test.value,
-                                                        random_state=1, stratify=y)  
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=slider_reg_lin_train_test.value, random_state=69)  
 
-     # traitement des valeurs manquantes 
+    # traitement des valeurs manquantes 
     imputer = SimpleImputer(missing_values=np.nan, strategy = strategy_imputer_reg_lin.value)
     imputer = imputer.fit(X_train)
     X_train = imputer.transform(X_train)
+    X_train = sm.add_constant(X_train)
     imputer = imputer.fit(X_test)
     X_test = imputer.transform(X_test)
-    
+    X_test = sm.add_constant(X_test)
 
     # regression linéaire avec statsmodels
     linreg = sm.OLS(y_train,X_train)
     res = linreg.fit()
-
+    print(res.summary())
     res_summ.text = str(res.summary())  
 
     #prediction régression linéaire 
     ypred = linreg.predict(res.params,X_test)
-
+    print(ypred)
     # figure du nuage de points
     #plotprediction = figure(plot_width=900, plot_height=300)
     #plotprediction.circle(x=y_test, y=ypred)
 
     #calcule MSE
-    lin_mse.text = mean_squared_error(y_test,ypred)
+    lin_mse.text = '\n\n La Mean Squared Error pour ce modèle est de :'+str(mean_squared_error(y_test,ypred))
 
-   
+    source_nuage_lin.data = dict( x=y_test, y=ypred)
 
     #regression linéaire regularisée
     #centrer réduire moyennes d'apprentissage
     sc = StandardScaler()
-    X_trainsc = sc.fit_transform(pd.DataFrame(X_train))
-    y_trainsc = sc.fit_transform(pd.DataFrame(y_train))
-    
-    linregu = sm.OLS(y_trainsc,X_trainsc)
-    resu = linregu.fit()
-    resu_summ.text = str(resu.summary())  
-    #model = linregu
-    #results_fu = resu
-    frames = []
-    for n in np.arange(0, slider_reg_lin_alpha, slider_reg_lin_alpha_pas).tolist():
-        results_fr = linregu.fit_regularized(L1_wt=0, alpha=n, start_params=resu.params)
-
-        results_fr_fit = sm.regression.linear_model.OLSResults(linregu, 
-                                                            results_fr.params, 
-                                                            linregu.normalized_cov_params)
-        frames.append(np.append(results_fr.params, results_fr_fit.ssr))
-
-    df_des_alpha = pd.DataFrame(frames, columns=list(X_train.columns) + ['ssr*'])
-    df_des_alpha.index=np.arange(0, slider_reg_lin_alpha, slider_reg_lin_alpha_pas).tolist()
-    df_des_alpha.index.name = 'alpha*'
-    #affichage
-    tableau_alpha = df_des_alpha.T
-    tableau_alpha.text = str(tableau_alpha)
-    
-    #graphiques
-    #%matplotlib inline
-    #fig, ax = plt.subplots(1, 2, figsize=(14, 4))
-    #ax[0] = df6.iloc[:, :-1].plot(ax=ax[0])
-    #ax[0].set_title('Coefficient')
-
+    X_trainsc = pd.DataFrame(sc.fit_transform(pd.DataFrame(X_train).values), columns=X_train.columns, index=X_train.index)
+    y_trainsc = pd.DataFrame(sc.fit_transform(pd.DataFrame(y_train).values), columns=y_train.columns, index=y_train.index)
+    print(X_trainsc)
+    print(y_trainsc)
+    linregsc = sm.OLS(y_trainsc,X_trainsc)
+    ressc = linregsc.fit()
+    ressc_summ.text = str(ressc.summary()) 
+    print(ressc.summary())
 # Fin de la regression linéaire---------------------------------------------------------------------------------- 
 
 
@@ -489,16 +486,13 @@ logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_ch
 
 
 #affichage regression linéaire
-reglineaire = Panel( child= Column(Row( var_cible_reg_lin_select, var_pred_reg_lin_choice), 
+reglineaire = Panel( child= Column(Row(var_cible_reg_lin_select, var_pred_reg_lin_choice), 
                                 Row(slider_reg_lin_train_test, strategy_imputer_reg_lin),
                                 Row(slider_reg_lin_alpha, slider_reg_lin_alpha_pas),
-                                res_summ,tableau_alpha ,lin_mse, resu_summ), title='Régression Linéaire' )
-#plotprediction
-
+                                res_summ, lin_mse, nuage_lin), title='Régression Linéaire' )
 SVM = Panel( child=Row(), title='SVM' )
 
-
-tabs_methods = Tabs(tabs=[logist, SVM], width=900)
+tabs_methods = Tabs(tabs=[logist, SVM, reglineaire], width=900)
 
 layout = column( file_input, tabs_df, data_table, tabs_graphiques, tabs_methods)
 
