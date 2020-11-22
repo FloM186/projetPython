@@ -21,6 +21,8 @@ from sklearn.model_selection import cross_val_score, StratifiedKFold, learning_c
 from statsmodels.api import MNLogit
 import statsmodels.api as sm
 
+from bokeh.transform import linear_cmap
+from bokeh.palettes import Spectral6
 from bokeh.models.layouts import Column, Row
 from bokeh.models.widgets.tables import StringEditor
 from bokeh.io import curdoc
@@ -383,13 +385,13 @@ def var_pred_reg_lin_choice_options(df):
 slider_reg_lin_train_test = Slider(start=0, end=1, value=0.3, step=0.01, title="Proportion des données test" )
 
 # slider du alpha max
-slider_reg_lin_alpha = Slider(start=0, end=1, value=0.25, step=0.01, title="Valeur de alpha" )
+slider_reg_lin_alpha = Slider(start=0, end=1, value=0.25, step=0.01, title="Valeur de alpha, correspond au coefficient de pénalité" )
 
 # slider du alpha pas
 slider_reg_lin_alpha_pas = Slider(start=0, end=1, value=0.05, step=0.01, title="Valeur du pas de alpha" )
 
 # slider de la pénalité L1
-slider_reg_lin_L1pen = Slider(start=0, end=1, value=0.05, step=0.01, title="Valeur de la pénalité a L1 : Si 0 = regression ridge, si 1 regression lasso" )
+slider_reg_lin_L1pen = Slider(start=0, end=1, value=0.45, step=0.01, title="Fraction de la pénalité affecté à L1 : Si 0 = regression ridge, si 1 regression lasso" )
 
 # select pour les strategies de valeurs manquantes
 strategy_imputer_reg_lin = Select(title='Stratégie de remplacement des valeurs manquantes', value='mean', 
@@ -404,7 +406,7 @@ tableau_alpha =  PreText(text='', width=400)
 lin_mse = PreText(text='', width=400)
 
 # Variables de la regression linéaire
-controls_reg_lin = [var_cible_reg_lin_select,var_pred_reg_lin_choice, strategy_imputer_reg_lin, slider_reg_lin_train_test, slider_reg_lin_alpha, slider_reg_lin_alpha_pas]
+controls_reg_lin = [var_cible_reg_lin_select,var_pred_reg_lin_choice, strategy_imputer_reg_lin, slider_reg_lin_train_test, slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen]
 for control_reg_lin in controls_reg_lin:
     control_reg_lin.on_change('value', lambda attr,old,new: update_reg_lin())
 
@@ -414,10 +416,18 @@ for control_reg_lin in controls_reg_lin:
 # donnees du nuage de points 
 source_nuage_lin = ColumnDataSource(data=dict(x=[], y=[]))
 # figure du nuage de points
-nuage_lin = figure(plot_width=900, plot_height=300, title="valeurs observées de l'échantillonnage d'entraînement comparé aux valeurs prédites par le modèle de regression linéaire")
-nuage_lin.circle(x='x', y='x', source=source_nuage_lin)
+nuage_lin = figure(plot_width=900, plot_height=300, title="Valeurs observées de l'échantillonnage d'entraînement comparé aux valeurs prédites par le modèle de regression linéaire")
+nuage_lin.circle(x='x', y='y',source=source_nuage_lin)
 nuage_lin.xaxis.axis_label = 'Valeurs observées'
 nuage_lin.yaxis.axis_label = 'Valeurs prédites'
+
+#figure lignes coef alpha
+#mapper = linear_cmap(field_name='y', palette=Spectral6 ,low=min(y) ,high=max(y), source=source_lines_reglin)
+source_lines_reglin = ColumnDataSource(data=dict(x=[], y=[]))
+lines_reglin = figure(plot_width=900, plot_height=300,title="Représentation des coefficients des variables en fonction de la valeur de alpha")
+lines_reglin.vline_stack(y='y'[i] for i in np.arange(0, len(tableau_alphaT.index),1), x='x',line_width=2, source=source_lines_reglin)
+lines_reglin.xaxis.axis_label = 'Valeur de alpha (coefficient de pénalité)'
+lines_reglin.yaxis.axis_label = 'Valeur des coefficients'
 
 # CallBack des features de la regression linéaire
 def update_reg_lin():
@@ -443,16 +453,12 @@ def update_reg_lin():
     # regression linéaire avec statsmodels
     linreg = sm.OLS(y_train,X_train)
     res = linreg.fit()
-    print(res.summary())
+    
     res_summ.text = str(res.summary())  
 
     #prediction régression linéaire 
     ypred = linreg.predict(res.params,X_test)
-    print(ypred)
-    # figure du nuage de points
-    #plotprediction = figure(plot_width=900, plot_height=300)
-    #plotprediction.circle(x=y_test, y=ypred)
-
+    
     #calcule MSE
     lin_mse.text = '\n\n La Mean Squared Error pour ce modèle est de :'+str(mean_squared_error(y_test,ypred))
 
@@ -471,9 +477,12 @@ def update_reg_lin():
     df_des_alpha.index=np.arange(0, slider_reg_lin_alpha.value, slider_reg_lin_alpha_pas.value).tolist()
     df_des_alpha.index.name = 'valeur de alpha :'
     #affichage
-    tableau_alphaT = df_des_alpha.T
+    tableau_alphaT = df_des_alpha.T.drop(index="ssr*")
     tableau_alpha.text = str(tableau_alphaT)
-    print(tableau_alphaT)
+
+    source_lines_reglin.data = dict( x=np.arange(0, slider_reg_lin_alpha.value, slider_reg_lin_alpha_pas.value).tolist(),
+     y=np.array_split(tableau_alphaT.values, len(tableau_alphaT.index)))
+    
 # Fin de la regression linéaire---------------------------------------------------------------------------------- 
 
 # Separateur a vastes marges---------------------------------------------------------------------------------------
@@ -685,18 +694,16 @@ logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_ch
 #affichage regression linéaire
 reglineaire = Panel( child= Column(Row(var_cible_reg_lin_select, var_pred_reg_lin_choice), 
                                 Row(slider_reg_lin_train_test, strategy_imputer_reg_lin),
-                                Row(slider_reg_lin_alpha, slider_reg_lin_alpha_pas),
-                                res_summ, lin_mse, nuage_lin, tableau_alpha), title='Régression Linéaire' )
+                                Row(slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen),
+                                res_summ, lin_mse, nuage_lin, tableau_alpha, lines_reglin), title='Régression Linéaire' )
 
-
-tabs_methods = Tabs(tabs=[logist, SVM, reglineaire], width=900)
 # affichage des SVM
 SVM= Panel( child= Column(Row( var_cible_svm_select, var_pred_svm_choice), 
                                 Row(slider_svm_train_test, strategy_imputer_svm),
                                 Row(kernel_svm_select, spinner_c_svm, spinner_cv_svm),
                                 data_conf_svm,roc_curve_svm,learn_curve_svm, res_svm ), title='Séparateurs à vastes marges' )
+tabs_methods = Tabs(tabs=[logist, SVM, reglineaire], width=900)
 
-tabs_methods = Tabs(tabs=[logist, SVM], width=900)
 
 layout = column( file_input, tabs_df, data_table, tabs_graphiques, tabs_methods)
 
