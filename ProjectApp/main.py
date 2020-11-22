@@ -98,7 +98,6 @@ data_table = DataTable( source=source, columns = columns,
 # Fin DataSet----------------------------------------------------------------------     
 
 
-
 # Nuage de points------------------------------------------------------------------
 # selection des axes abscisse et ordonnées
 y_nuage_select = Select(title="Ordonnées :", options = [])
@@ -504,7 +503,8 @@ def update_svm():
     kfold = StratifiedKFold(n_splits=spinner_cv_svm.value).split(X_train, y_train)
     scores = []
     # rapport svm
-    rapport_svm = str(class_report)+'\n Accuracy score : '+str(accuracy_score(y_test, y_pred))
+    rapport_svm = 'Les indices des Vecteurs Supports : '+str(model.support_)+'\n'+'\n Vecteurs Supports : '+str(list(model.support_vectors_))
+    rapport_svm = rapport_svm+'\n'+str(class_report)+'\n Accuracy score : '+str(accuracy_score(y_test, y_pred))
     rapport_svm = rapport_svm+'\n\n\n\n\n Validation Croisée Stratifiée :'
 
     for k, (train, test) in enumerate(kfold):
@@ -525,6 +525,7 @@ def update_svm():
     rapport_svm = rapport_svm + '\n Validation Croisée accuracy scores: %s' % list(scores)
     
     rapport_svm = rapport_svm + '\n Validation Croisée accuracy: %.3f +/- %.3f \n\n\n\n\n\n\n\n\n\n' % (np.mean(scores), np.std(scores))
+    
     # rapport de la regression logistique et rapport de la classification
     res_svm.text = rapport_svm
 
