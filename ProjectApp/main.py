@@ -411,8 +411,10 @@ res_summ = PreText(text='', width=400)
 tableau_alpha =  PreText(text='', width=400)
 lin_mse = PreText(text='', width=400)
 temps_lin = PreText(text='', width=400, height=50)
-res_lin = PreText(text='', width=400)
 msg_pen = PreText(text="Si la pénalité affecté à L1 est de 0 l'analyse correspondra à une regression Ridge, si la pénalité est de 1 à une regression Lasso. Si la pénalité est comprise entre 0 et 1 cela correspondra à une analyse ElasticNet", width=400, height=50)
+rapport_lin_cv = PreText(text='', width=400)
+rapport_lin_cv_avg = PreText(text='', width=400)
+
 # Variables de la regression linéaire
 controls_reg_lin = [var_cible_reg_lin_select,var_pred_reg_lin_choice, strategy_imputer_reg_lin, slider_reg_lin_train_test, slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen]
 for control_reg_lin in controls_reg_lin:
@@ -507,7 +509,26 @@ def update_reg_lin():
             len(tableau_alphaT.index))
         ).tolist())
 
+    # Validation croisée avec sklearn
+    from sklearn.linear_model import ElasticNetCV
+    from sklearn.datasets import make_regression
 
+    from sklearn.linear_model import ElasticNetCV
+    from sklearn.datasets import make_regression
+    # Création du modèle
+    model = ElasticNetCV(cv=spinner_cv_lin.value, random_state=0, l1_ratio=slider_reg_lin_L1pen.value, normalize=True, alphas=np.arange(0, slider_reg_lin_alpha.value, slider_reg_lin_alpha_pas.value).tolist())
+    resk = model.fit(X_train, y_train)
+    # Prédiction
+    y_predsk = model.predict(X_test)
+
+    # Création des tableaux du MSE
+    tab_lin_all_mse = pd.DataFrame(resk.mse_path_, index=resk.alphas_)
+    avg_mse = np.mean(resk.mse_path_,axis=1)
+    tab_lin_avg_mse = pd.DataFrame({'alpha':resk.alphas_,'MSE':avg_mse})
+    
+    # Affichage du rapport
+    rapport_lin_cv.text = 'Tableau des MSE des différents splits de la cross validation en fonction des valeurs de alpha \n'+str(tab_lin_all_mse)
+    rapport_lin_cv_avg.text = 'Tableau des MSE de la moyenne des splits de la cross validation en fonction des valeurs de alpha \n'+str(tab_lin_avg_mse)
     # Temps d'éxcécution
     temps_lin.text = 'Le temps de calcul est de '+str(time.time() - start_time)+' secondes pour cette analyse'
 # Fin de la regression linéaire------------------------------------------------------------------------ 
@@ -923,8 +944,8 @@ logist = Panel( child= Column(Row( var_cible_reg_log_select, var_pred_reg_log_ch
 # Affichage regression linéaire
 reglineaire = Panel( child= Column(Row(var_cible_reg_lin_select, var_pred_reg_lin_choice), 
                                 Row(slider_reg_lin_train_test, strategy_imputer_reg_lin),
-                                Row(slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen),
-                                msg_pen, temps_lin, res_summ, lin_mse, nuage_lin, tableau_alpha, lines_reglin, res_lin), title='Régression Linéaire Lasso/Ridge/ElasticNet' )
+                                Row(slider_reg_lin_alpha, slider_reg_lin_alpha_pas, slider_reg_lin_L1pen, spinner_cv_lin),
+                                msg_pen, temps_lin, res_summ, lin_mse, nuage_lin, tableau_alpha, lines_reglin, rapport_lin_cv, rapport_lin_cv_avg), title='Régression Linéaire Lasso/Ridge/ElasticNet' )
 
 # Affichage des SVM
 SVM= Panel( child= Column(Row( var_cible_svm_select, var_pred_svm_choice), 
